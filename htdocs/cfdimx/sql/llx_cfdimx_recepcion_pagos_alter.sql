@@ -1,0 +1,1 @@
+ALTER TABLE `llx_cfdimx_recepcion_pagos` ADD COLUMN `rel_facture` int(11) DEFAULT NULL;

@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  php:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    env_file: .env
+    container_name: "${APP_NAME}-php"
+    volumes:
+      - documents:/var/www/html/documents
+    restart: always
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    restart: always
+    container_name: "${APP_NAME}-mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${SET_ROOT_PASSWORD:-root}"
+      MYSQL_DATABASE: "${DB_NAME:-dolibarr}"
+      MYSQL_USER: "${DB_USER:-test}"
+      MYSQL_PASSWORD: "${DB_PASS:-test}"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: mysqld --default-authentication-plugin=mysql_native_password --sql-mode="STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+
+volumes:
+  mysql_data:
+    driver: local
+  documents:
+    driver: local
+
+networks:
+  default:
+    name: "dermaplastic"
+

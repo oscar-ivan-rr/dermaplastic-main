@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>Regenerate a Signature · Signature Pad</title>
+  <link href="assets/jquery.signaturepad.css" rel="stylesheet">
+  <!--[if lt IE 9]><script src="../assets/flashcanvas.js"></script><![endif]-->
+  <script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <a href="https://github.com/ezl/signature-pad"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png"></a>
+    <h1>Signature Rendering Demo</h1>
+    <hr>
+    <div class="row">
+      <div class="col-md-9">
+        <p>My fork of Thomas Bradley's javascript excellent signature library: <a href="https://github.com/ezl/signature-pad">https://github.com/ezl/signature-pad</a><br>
+           Original library: <a href="https://github.com/thomasjbradley/signature-pad/">https://github.com/thomasjbradley/signature-pad/</a></p>
+
+        <p>This page just demonstrates two things:</p>
+        <ol>
+          <li><strong>Smoothing a signature</strong>: Both signatures below are generating using the same source data.</li>
+          <li><strong>Automatic resizing</strong>: The first version will scale the signature size and center it on the canvas if you resize the browser.</li>
+        </ol>
+        <p>
+          The first is the <a href="https://github.com/ezl/signature-pad">fork with smoothing by me</a>,
+          the first is the <a href="https://github.com/thomasjbradley/signature-pad/">original library by Thomas Bradley</a>.
+        </p>
+      </div><!-- .col-md-9 -->
+      <div class="col-md-3">
+        <a href="index.html" class="other-page-button">
+         Try Signing Your Signature
+        </a>
+      </div><!-- .col-md-3 -->
+    </div><!-- .row -->
+
+    <hr>
+
+    <div class="row padtop20px">
+      <div class="col-md-4">
+        <h2>Bezier Curves w/ Variable Pen Width</h2>
+
+        <p><span style="text-decoration: underline;">Smoothing</span>: Bezier curves that pass through all sampled points</p>
+        <p>Stroke width is determined by using distance between measured points as a proxy for the mouse velocity at the time the signature was created.</p>
+        <hr>
+        <p><span style="text-decoration: underline;">Resizing</span>: This signature also resizes if you refresh or resize the browser window.</p>
+        <p>This finds the largest intersection of the recording canvas and rendering canvas, maps the recorded signature points to that new canvas, then centers it to generate a scaled, centered signature.</p>
+      </div><!-- .col-md-4 -->
+      <div class="col-md-8">
+        <div class="signature-container">
+          <div id="smoothed" class="sigPad signed">
+            <div class="sigWrapper" style="min-heigh50px;">
+              <canvas class="pad" width="700" height="250"></canvas>
+            </div>
+          </div><!-- #smoothed -->
+        </div><!-- .signature-container -->
+      </div><!-- .col-md-8 -->
+    </div><!-- .row -->
+
+    <div class="row padtop20px">
+      <div class="col-md-4">
+        <h2>Original Library</h2>
+        <p><span style="text-decoration: underline;">Smoothing</span>: Straight line segments between sampled signature points (original)</p>
+        <p>The original method creates straight lines and kinks between the sampled points.</p>
+        <hr>
+        <p><span style="text-decoration: underline;">Resizing</span>: The data is saved as a (x,y) coordinates from the top left corner of the canvas, measured in pixels.</p>
+        <p>As a result, if you regenerate the signature on a canvas that is smaller than the canvas on which the signature was recorded, the signature will render off the canvas.</p>
+      </div><!-- .col-md-4 -->
+      <div class="col-md-8">
+        <div class="signature-container">
+          <div id="original" class="sigPad signed">
+            <div class="sigWrapper" style="min-heigh50px;">
+              <canvas class="pad" width="700" height="250"></canvas>
+            </div>
+          </div><!-- #original -->
+        </div><!-- .signature-container -->
+      </div><!-- .col-md-8 -->
+    </div><!-- .row -->
+
+    </div><!-- .row -->
+  </div><!-- .container -->
+
+  <script src="examples/carlos-signature-output.js"></script>
+  <script src="assets/numeric-1.2.6.min.js"></script>
+  <script src="assets/bezier.js"></script>
+  <script src="jquery.signaturepad.js"></script>
+  <script>
+    $(document).ready(function() {
+
+      var drawSignatures = function() {
+        // The aspect ratio of this particular signature happens to be about 3x2
+        var width = $(".signature-container").innerWidth() - 20;
+        var height = width * (2/3);
+
+        $("canvas").attr("width", width);
+        $("canvas").attr("height", height);
+        $(".col-md-8").css({"height": height + "px"});
+
+        $('#original').signaturePad({displayOnly:true, autoscale:false}).regenerate(sig);
+        $('#smoothed').signaturePad({displayOnly:true, autoscale:true, drawBezierCurves:true, variableStrokeWidth:true}).regenerate(sig);
+      };
+      $( window ).resize(function() {
+        drawSignatures();
+      });
+      drawSignatures();
+    });
+  </script>
+  <script src="assets/json2.min.js"></script>
+  <style>
+    .padtop20px { padding-top: 20px;}
+    canvas { border: 1px solid #aaa; }
+    .other-page-button {
+      background-color: #00acec;
+      color: white !important;
+      border-radius: 5px;
+      display: block;
+      padding: 5px;
+      text-align: center;
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+    }
+    h2 { font-size: 22px;}
+  </style>
+</body>
+

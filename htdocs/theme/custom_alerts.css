@@ -1,0 +1,151 @@
+/**
+ * Custom CSS para mejorar la visibilidad de las alertas del sistema
+ * Este archivo modifica el estilo de las alertas para hacerlas más visibles en monitores grandes
+ */
+
+/* Estilos globales para todas las alertas */
+.error, .warning, .info, .ok, div.error, div.warning, div.info, div.ok {
+    margin: 15px auto !important;
+    padding: 15px !important;
+    max-width: 80% !important;
+    border-radius: 5px !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    /* box-shadow: 0 3px 8px rgba(0,0,0,0.2) !important; */
+    position: relative !important;
+    z-index: 1000 !important;
+    /* border-left: 8px solid !important; */
+    display: inline-block !important;
+    width: auto !important;
+    min-width: 60% !important;
+}
+
+/* Fix para eliminar contornos transparentes */
+.error:before, .warning:before, .info:before, .ok:before, 
+div.error:before, div.warning:before, div.info:before, div.ok:before,
+.error:after, .warning:after, .info:after, .ok:after,
+div.error:after, div.warning:after, div.info:after, div.ok:after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Asegurar que el contenedor está a nivel de la página */
+#id-container, .id-container, .fiche, .fichecenter {
+    position: relative !important;
+    z-index: auto !important;
+}
+
+/* Estilo específico para mensajes de error */
+.error, div.error {
+    background-color: #ffebee !important;
+    color: #d32f2f !important;
+    border-color: #d32f2f !important;
+}
+
+/* Estilo específico para mensajes de advertencia */
+.warning, div.warning {
+    background-color: #fff8e1 !important;
+    color: #ff8f00 !important;
+    border-color: #ff8f00 !important;
+}
+
+/* Estilo específico para mensajes informativos */
+.info, div.info {
+    background-color: #e3f2fd !important;
+    color: #1976d2 !important;
+    border-color: #1976d2 !important;
+}
+
+/* Estilo específico para mensajes de éxito */
+.ok, div.ok {
+    background-color: #e8f5e9 !important;
+    color: #2e7d32 !important;
+    border-color: #2e7d32 !important;
+}
+
+/* Estilos para las alertas jNotify */
+.jnotify-container {
+    max-width: 80% !important;
+    width: auto !important;
+    padding: 15px !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+    /* box-shadow: 0 5px 15px rgba(0,0,0,0.3) !important; */
+    /* border-left: 8px solid !important; */
+    pointer-events: auto !important;
+}
+
+.jnotify-container-error {
+    background-color: #ffebee !important;
+    color: #d32f2f !important;
+    border-color: #d32f2f !important;
+}
+
+.jnotify-container-warning {
+    background-color: #fff8e1 !important;
+    color: #ff8f00 !important;
+    border-color: #ff8f00 !important;
+}
+
+.jnotify-container-success {
+    background-color: #e8f5e9 !important;
+    color: #2e7d32 !important;
+    border-color: #2e7d32 !important;
+}
+
+/* Contenedor de notificaciones */
+#jnotify-container {
+    position: fixed !important;
+    top: 20px !important;
+    left: 0 !important;
+    right: 0 !important;
+    text-align: center !important;
+    z-index: 9999 !important;
+    pointer-events: none !important;
+}
+
+/* Asegurando que las alertas son visibles en todas las resoluciones */
+@media screen and (min-width: 1200px) {
+    .error, .warning, .info, .ok, div.error, div.warning, div.info, div.ok,
+    .jnotify-container {
+        font-size: 18px !important;
+        padding: 20px !important;
+    }
+}
+
+/* Animación de entrada para las alertas */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -30px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.error, .warning, .info, .ok, div.error, div.warning, div.info, div.ok,
+.jnotify-container {
+    animation: fadeInDown 0.5s ease-out !important;
+}
+
+/* Fix para el boton de cerrar en las alertas */
+.error .close, .warning .close, .info .close, .ok .close, 
+div.error .close, div.warning .close, div.info .close, div.ok .close {
+    position: absolute !important;
+    right: 10px !important;
+    top: 10px !important;
+    color: inherit !important;
+    opacity: 0.7 !important;
+    font-size: 20px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    z-index: 1001 !important;
+}
+
+.error .close:hover, .warning .close:hover, .info .close:hover, .ok .close:hover,
+div.error .close:hover, div.warning .close:hover, div.info .close:hover, div.ok .close:hover {
+    opacity: 1 !important;
+} 

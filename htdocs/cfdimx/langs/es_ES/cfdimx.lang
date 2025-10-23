@@ -1,0 +1,24 @@
+##### CFDIMX - Configuración
+
+America/Cancun=Cancun
+America/Chihuahua=Chihuahua
+America/Hermosillo=Hermosillo
+America/Mazatlan=Mazatlan
+America/Merida=Merida
+America/Mexico_City=Ciudad de México
+America/Tijuana=Tijuana
+America/Denver=Denver
+RutaCambioValores=Configuración -> Empresa/Organización
+RutaCambioValores2=CFDIMX -> Sellos Digitales (CSD) -> Datos Fiscales
+Clave_t=Clave Transporte
+Cod_doli=Clave Dolibarr
+
+###Pagos
+TipoImp1=Retención
+TipoImp2=Traslado
+TipoImpPDF1=Retencion
+TipoImpPDF2=Traslado
+Imp001=ISR - 001
+Imp002=IVA - 002
+Imp003=IEPS - 003
+CurrencyCP=Moneda del Pago

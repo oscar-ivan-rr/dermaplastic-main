@@ -1,0 +1,26 @@
+documents/
+*.cache
+htdocs/product/sell_gain.json
+.env
+.idea/
+
+# Ignore materialize src
+htdocs/includes/materialize-src/*
+# Include materialize css
+!htdocs/includes/materialize-src/css/
+# Include materialize js directory
+!htdocs/includes/materialize-src/js/
+# Ignore all files in materialize js directory
+htdocs/includes/materialize-src/js/*
+# Include files in materialize js/bin directory
+!htdocs/includes/materialize-src/js/bin/
+
+__azurite_db_blob__.json
+__azurite_db_blob_extent__.json
+htdocs/commande/debug_label.*
+
+# Ignore docker-compose.develop.yml
+docker-compose.develop.yml
+
+#Ignore settings.json
+.vscode/settings.json

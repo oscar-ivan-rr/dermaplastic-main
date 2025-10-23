@@ -1,0 +1,2 @@
+# No olvidar una linea en blanco al final del archivo
+*/5 * * * * . /etc/environment_ext; php /var/www/html/scripts/cron/cron_run_jobs.php L5dIqTn26kw1uX151XB3XM6iaKT5tJwr soporte >> /var/www/html/documents/cron_run_jobs.php.log

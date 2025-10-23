@@ -1,0 +1,5 @@
+# Dolibarr language file - Source file is en_US - compta
+Param=Configuración
+PaymentSocialContribution=Pago de impuesto social/fiscal
+ByThirdParties=Por terceros
+AskGenerateCreditNoteCFDI=¿Desea generar el timbrado de las notas de crédito?
