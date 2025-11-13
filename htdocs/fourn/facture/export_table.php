@@ -12,18 +12,18 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 
 $langs->loadLangs(array('bills', 'companies', 'products', 'categories'));
-//ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 $facturestatic = new FactureFournisseur($db);
 $supplierstatic = new Fournisseur($db);
 $thirdparty = new Societe($db);
 $form = new Form($db);
 $formcompany = new FormCompany($db);
 $filename = "invoice_report.xls";
-$arrayfields    = (array) json_decode($_POST['datos_a_enviar']);
+$arrayfields    = (array) json_decode($_POST['datos_a_enviar'], true);
 foreach ($arrayfields as $key => $value)
     $arrayfields[$key] = (array) $value;
 $sql    = $_POST['sql'];
-$factures    = json_decode($_POST['factures']);
+$factures    = (array) json_decode($_POST['factures']);
 if(sizeof($factures) > 0)
 {
     $sqlExplode = explode('WHERE', $sql);
@@ -45,7 +45,7 @@ $num = $db->num_rows($resql);
 $table = '';
 $columnas=0;
 foreach ($arrayfields as $key => $value) {
-    if (!empty($value['checked'])) {
+    if (!empty($value->{'checked'})) {
         $columnas++;
     }
 }
