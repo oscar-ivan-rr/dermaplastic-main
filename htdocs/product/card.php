@@ -1575,7 +1575,7 @@ else
 			print "</td></tr>";
 
             // Exento IVA
-            print '<tr><td >'.$langs->trans("Exento de I.V.A.").'</td><td colspan="3">';
+            print '<tr><td >'.$langs->trans("Tasa 0%").'</td><td colspan="3">';
             print '<input type= checkbox id= "exentoiva" name="exentoiva" size="5">';
             print '</td></tr>';
 
@@ -2161,7 +2161,7 @@ else
 				print "</td></tr>";
 
                 // Exento IVA
-                print '<tr><td>'.$langs->trans("Exento de I.V.A.").'</td><td colspan="3">';
+                print '<tr><td>'.$langs->trans("Tasa 0%").'</td><td colspan="3">';
                 print '<input type= checkbox id= "exentoiva" name="exentoiva" size="5"';
                 if($object->exentoiva ==1){
                     print 'checked>';
@@ -2247,7 +2247,7 @@ else
             }
 
 			$(document).ready(function() {
-				var $select = $("#exentoiva").click(function() {
+				/* var $select = $("#exentoiva").click(function() {
                     // Si el producto es exento de IVA
                     if (this.checked) {
                         // Se asignan los valores correctos y se deshabilitan los campos
@@ -2266,7 +2266,7 @@ else
                         $("#input_options_objimp").prop("disabled", true);
                     }
 					
-				});
+				}); */
 			});
             
 		</script>';
@@ -2819,7 +2819,7 @@ else
 			}
 			// Exento IVA
 			if ($conf->categorie->enabled) {
-				print '<tr><td class="valignmiddle">'.$langs->trans("Exento de I.V.A.").'</td><td colspan="3">';
+				print '<tr><td class="valignmiddle">'.$langs->trans("Tasa 0%").'</td><td colspan="3">';
                 if($object->exentoiva == 0){
                     print '<input type= checkbox name="exentoiva" size="5" value="" disabled readonly> ';
                 }
