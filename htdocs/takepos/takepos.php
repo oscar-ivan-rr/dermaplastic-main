@@ -1464,15 +1464,15 @@ $sql .= " AND status = 0";
 $sql .= " AND posnumber IN (SELECT REPLACE(lc.name, 'CASHDESK_ID_WAREHOUSE', '') FROM ".MAIN_DB_PREFIX."const lc, ".MAIN_DB_PREFIX."user lu WHERE lc.value = lu.fk_warehouse AND lu.login = '".$_SESSION["dol_login"]."' AND lc.name LIKE 'CASHDESK_ID_WAREHOUSE%')";
 $sql .= " ORDER BY rowid DESC LIMIT 1";
 $resql = $db->query($sql);
-
+// ($db->num_rows($resql) > 0) ? '' : 'disabled'=>'disabled'
 $menus[$r++] = array('title'=>'<span class="far fa-building paddingrightonly"></span><div class="trunc">'.$langs->trans("Customer").'</div>', 'action'=>'Customer();');
 $menus[$r++] = array('title'=>'<span class="fa fa-history paddingrightonly"></span><div class="trunc">'.$langs->trans("History").'</div>', 'action'=>'History();');
-$menus[$r++] = array('style'=>'background: #ff0023;','title'=>'<span class="fas fa-sign-out-alt paddingrightonly"></span><div class="trunc">Salida</div>', 'action'=>'Salida();', 'class'=>'salida', ($db->num_rows($resql) > 0) ? '' : 'disabled'=>'disabled');
+$menus[$r++] = array('style'=>'background: #ff0023;','title'=>'<span class="fas fa-sign-out-alt paddingrightonly"></span><div class="trunc">Salida</div>', 'action'=>'Salida();', 'class'=>'salida');
 $menus[$r++] = array('title'=>'<span class="fa fa-layer-group paddingrightonly"></span><div class="trunc">'.$langs->trans("New").'</div>', 'action'=>'New();');
-$menus[$r++] = array('title'=>'<span class="far fa-money-bill-alt paddingrightonly"></span><div class="trunc">'.$langs->trans("Payment").'</div>', 'action'=>'CloseBill();', 'id'=>'closebillbutton', ($db->num_rows($resql) > 0) ? '' : 'disabled'=>'disabled');
-$menus[$r++] = array('style'=>'background: #45b867;','title'=>'<span class="fas fa-sign-in-alt paddingrightonly"></span><div class="trunc">Entrada</div>', 'action'=>'Entrada();', 'class'=>'entrada', ($db->num_rows($resql) > 0) ? '' : 'disabled'=>'disabled');
+$menus[$r++] = array('title'=>'<span class="far fa-money-bill-alt paddingrightonly"></span><div class="trunc">'.$langs->trans("Payment").'</div>', 'action'=>'CloseBill();', 'id'=>'closebillbutton');
+$menus[$r++] = array('style'=>'background: #45b867;','title'=>'<span class="fas fa-sign-in-alt paddingrightonly"></span><div class="trunc">Entrada</div>', 'action'=>'Entrada();', 'class'=>'entrada');
 $menus[$r++] = array('title'=>'<span class="fas fa-sticky-note paddingrightonly"></span><div class="trunc">Facturar</div>', 'action'=>'Facturar();');
-$menus[$r++] = array('title'=>'<span class="fas fa-undo-alt paddingrightonly"></span><div class="trunc">Devolver</div>', 'action'=>'Devolucion();', ($db->num_rows($resql) > 0) ? '' : 'disabled'=>'disabled');
+$menus[$r++] = array('title'=>'<span class="fas fa-undo-alt paddingrightonly"></span><div class="trunc">Devolver</div>', 'action'=>'Devolucion();');
 if ($db->num_rows($resql) > 0) {
 	$obj = $db->fetch_object($resql);
 	if ($obj->posnumber == $_SESSION["takeposterminal"])$menus[$r++] = array('style'=>'background:#0064a7;','title'=>'<span class="fas fa-cash-register paddingrightonly" style="color:#fff;"></span><div class="trunc blanco">Corte de caja</div>', 'action'=>'ControlCaja('.$obj->rowid.');');
