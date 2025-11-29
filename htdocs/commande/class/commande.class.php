@@ -4471,7 +4471,7 @@ class Commande extends CommonOrder
         $url = '';
         switch ($marketplace) {
             case 'ML':
-                $url = 'http://backend:8080/api/mercadolibre/orders/'.$this->pack_id.'/shipping_label';
+                $url = BACKEND_URL . 'mercadolibre/orders/'.$this->pack_id.'/shipping_label';
                 break;
             default:
                 break;
