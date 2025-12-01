@@ -1,11 +1,11 @@
-FROM php:7.2-apache as base
+FROM php:7.4-apache as base
 
 WORKDIR /var/www/html
 
 #gd
 RUN apt-get update && apt-get install -y \
-		libfreetype6-dev \
-		libjpeg62-turbo-dev \
+		libfreetype-dev \
+		libjpeg-dev \
 		libpng-dev \
 		libicu-dev \
 		libzip-dev \
@@ -38,6 +38,7 @@ RUN sed -i 's|/var/www/html|/var/www/html/htdocs|g' /etc/apache2/sites-available
 #Permisos carpeta
 RUN mkdir -p /var/www/html/documents
 RUN mkdir -p /var/www/html/documents/bitacoras/
+
 # RUN chown -R www-data:www-data /var/www/html
 # RUN chmod -R 755 /var/www/html
 
@@ -59,8 +60,9 @@ RUN echo "post_max_size = 1024M" >> "$PHP_INI_DIR/php.ini"
 RUN echo "upload_max_filesize = 1024M" >> "$PHP_INI_DIR/php.ini"
 RUN echo "max_input_vars = 10000" >> "$PHP_INI_DIR/php.ini"
 
-COPY list.cron .
-RUN crontab list.cron
+#Disable cron for testing
+#COPY list.cron .
+#RUN crontab list.cron
 
 # Script para extraer variables de entorno y ponerlas en /etc/environment_ext
 COPY extract_variables.sh /etc/extract_variables.sh
