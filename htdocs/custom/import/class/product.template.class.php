@@ -175,7 +175,8 @@ class ProductTemplate extends Template {
         $this->ref = trim($this->ref);
 
         $this->product = new Product($this->db);
-        $res = $this->product->fetch('', $this->ref);
+        //$res = $this->product->fetch('', $this->ref);
+        $res = $this->product->fetch('', '', '', $this->barcode);
         
         if ($res == 1)
         {
@@ -398,6 +399,8 @@ class ProductTemplate extends Template {
         // Categoría
         if($this->categories != '')
         {
+            $sql = "DELETE FROM " . MAIN_DB_PREFIX . "categorie_product WHERE fk_product='".$this->product->id."'";
+            $result = $this->db->query($sql);
             $categories = explode('/',$this->categories);
             foreach ($categories as $cat)
             {

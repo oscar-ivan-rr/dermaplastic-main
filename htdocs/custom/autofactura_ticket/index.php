@@ -104,9 +104,9 @@ require '../../master.inc.php';
     </div>
 
     <!-- Copyright -->
-    <div class="footer-copyright text-center">© 2024 Copyright:
+    <!-- <div class="footer-copyright text-center">© 2024 Copyright:
         <a href="https://lionintel.com"> lionintel.com</a>
-    </div>
+    </div> -->
     <!-- Copyright -->
 
 </footer>
