@@ -499,7 +499,7 @@ class pdf_muscadet extends ModelePDFSuppliersOrders
 					{
 						$descWidth = $this->posxtva-$curX;
 					}
-					pdf_writelinedesc($pdf, $object, $i, $outputlangs, $descWidth,0, $this->posxqty - 1, $curY, $hideref, $hidedesc, 0,1);
+					pdf_writelinedesc($pdf, $object, $i, $outputlangs, $descWidth - 20,0, $this->posxqty - 1, $curY, $hideref, $hidedesc, 0,1);
 
 					$pageposafter=$pdf->getPage();
 					if ($pageposafter > $pageposbefore)	// There is a pagebreak
@@ -509,7 +509,7 @@ class pdf_muscadet extends ModelePDFSuppliersOrders
 						//print $pageposafter.'-'.$pageposbefore;exit;
 						$pdf->setPageOrientation('', 1, $heightforfooter);	// The only function to edit the bottom margin of current page to set it.
 
-						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $descWidth,0, $this->posxqty - 1, $curY, $hideref, $hidedesc, 0,1);
+						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $descWidth - 20,0, $this->posxqty - 1, $curY, $hideref, $hidedesc, 0,1);
 
 						// Quantity
 						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);

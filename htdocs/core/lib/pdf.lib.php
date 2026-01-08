@@ -1216,12 +1216,16 @@ function pdf_writelinedesc(&$pdf, $object, $i, $outputlangs, $w, $h, $posx, $pos
 		$labelproductservice = preg_replace('/(<img[^>]*src=")([^"]*)(&amp;)([^"]*")/', '\1\2&\4', $labelproductservice, -1, $nbrep);
 
 		$prodid = $object->lines[$i]->fk_product;
+		$label=$object->lines[$i]->product_label;
 
-        $label=$object->lines[$i]->product_label;
 
 		if (!is_null($prodid) && $addhyperlink){
-            // $labelproductservice = '<a href="'.DOL_MAIN_URL_ROOT . '/product/custom/view.php?id='.$prodid.'">'.$label.'</a>';
-            $labelproductservice = $label;
+			include_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+			$prodser = new Product($db);
+			$prodser->fetch($prodid);
+			$labelproductservice = $prodid . ' - ' . $label;
+			$labelproductservice .= ' ('. $prodser->barcode .')';
+			// $labelproductservice = '<a href="'.DOL_MAIN_URL_ROOT . '/product/custom/view.php?id='.$prodid.'">'.$label.'</a>';
 			if(!empty($object->lines[$i]->desc)){
 				if( substr($object->lines[$i]->desc,0,17) != '(País de origen:'){
 					$labelproductservice .= '<span> Observación: '.$object->lines[$i]->desc.'</span>';
