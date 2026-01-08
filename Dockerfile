@@ -61,8 +61,8 @@ RUN echo "upload_max_filesize = 1024M" >> "$PHP_INI_DIR/php.ini"
 RUN echo "max_input_vars = 10000" >> "$PHP_INI_DIR/php.ini"
 
 #Disable cron for testing
-#COPY list.cron .
-#RUN crontab list.cron
+COPY list.cron .
+RUN crontab list.cron
 
 # Script para extraer variables de entorno y ponerlas en /etc/environment_ext
 COPY extract_variables.sh /etc/extract_variables.sh
