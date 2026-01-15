@@ -45,11 +45,12 @@ if (!$sortorder) $sortorder = "DESC";
 $titlepage = "Reporte de sucursal";
 
 // Get total for each payment type
-$sql = "SELECT  qty, (total_ht/qty) as average, total_ht, cash_total, credit_total, debit_total, transfer_total, total_tva ";
+$sql = "SELECT  qty, (total_ht_x/qty) as average, (total_ht - total_tva) AS total_ht, cash_total, credit_total, debit_total, transfer_total, total_tva ";
 $sql .= "FROM (SELECT SUM(CASE WHEN lcp.code = 'VIR' THEN lpf.amount ELSE 0 END) AS transfer_total, ";
 $sql .= "SUM(CASE WHEN lcp.code = 'LIQ' THEN lpf.amount ELSE 0 END) AS cash_total, ";
 $sql .= "SUM(CASE WHEN lcp.code = 'CB' THEN lpf.amount ELSE 0 END) AS credit_total, ";
-$sql .= "SUM(CASE WHEN lcp.code = 'TD/C' THEN lpf.amount ELSE 0 END) AS debit_total ";
+$sql .= "SUM(CASE WHEN lcp.code = 'TD/C' THEN lpf.amount ELSE 0 END) AS debit_total, ";
+$sql .= "SUM(lpf.amount) AS total_ht ";
 $sql .= "FROM llx_facture f LEFT JOIN llx_paiement_facture lpf ON lpf.fk_facture = f.rowid ";
 $sql .= "JOIN llx_paiement lp ON lp.rowid = lpf.fk_paiement JOIN llx_c_paiement lcp ON lp.fk_paiement = lcp.id ";
 $sql .= "WHERE f.entity IN (1) AND f.fk_statut >= 1 AND f.paye = 1 ";
@@ -65,7 +66,7 @@ if (!empty($dateinicio) && !empty($datefinal)) {
 }
 $sql .= ") AS t1 ";
 // Get total for each invoice
-$sql .= "JOIN (SELECT SUM(d.qty) AS qty, SUM(d.total_ht) AS total_ht, SUM(d.total_tva) AS total_tva ";
+$sql .= "JOIN (SELECT SUM(d.qty) AS qty, SUM(d.total_ht) AS total_ht_x, SUM(d.total_tva) AS total_tva ";
 $sql .= "FROM llx_facture f LEFT JOIN llx_facturedet d ON f.rowid = d.fk_facture ";
 $sql .= "WHERE f.entity IN (1) AND f.fk_statut >= 1 AND f.paye = 1 ";
 if ($warehouse) {
