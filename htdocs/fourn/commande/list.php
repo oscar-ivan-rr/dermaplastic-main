@@ -608,7 +608,6 @@ if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
 }
 
 $sql .= $db->plimit($limit + 1, $offset);
-echo $sql;
 $resql = $db->query($sql);
 if ($resql)
 {
