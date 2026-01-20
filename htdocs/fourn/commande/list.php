@@ -567,7 +567,7 @@ if (date('',$search_order_start) > date('',$search_order_end)) {
 	$sql.=" AND cf.date_commande BETWEEN '".$search_order_startyear."-".$search_order_startmonth."-".$search_order_startday."' AND '".$search_order_endyear."-".$search_order_endmonth."-".$search_order_endday."'";
 } elseif ($search_order_startday) {
 	$sql.=" AND cf.date_commande BETWEEN '".$search_order_startyear."-".$search_order_startmonth."-".$search_order_startday."' AND CURDATE()";
-} elseif ($search_order_endday) {
+} elseif ($search_order_endday && $search_status != 0) {
 	$sql.=" AND cf.date_commande < '".$search_order_endyear."-".$search_order_endmonth."-".$search_order_endday."'";
 }
 
@@ -608,7 +608,7 @@ if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
 }
 
 $sql .= $db->plimit($limit + 1, $offset);
-
+echo $sql;
 $resql = $db->query($sql);
 if ($resql)
 {
