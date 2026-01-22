@@ -1672,38 +1672,38 @@ else
 
             print '<script>
 			$(document).ready(function() {
-				var $select = $("#exentoiva").click(function() {
-                    // Si el producto es exento de IVA
-                    if (this.checked) {
-                        // Se asignan los valores correctos y se deshabilitan los campos
-                        $("#tva_tx").val(0);
-                        $("#select_price_base_type").val("HT");
-                        $("#options_objimp").val("03");
+				// var $select = $("#exentoiva").click(function() {
+                //     // Si el producto es exento de IVA
+                //     if (this.checked) {
+                //         // Se asignan los valores correctos y se deshabilitan los campos
+                //         $("#tva_tx").val(0);
+                //         $("#select_price_base_type").val("HT");
+                //         $("#options_objimp").val("03");
 
-                        $("#tva_tx").prop("disabled", true);
-                        $("#select_price_base_type").prop("disabled", true);
-                        $("#options_objimp").prop("disabled", true);
+                //         $("#tva_tx").prop("disabled", true);
+                //         $("#select_price_base_type").prop("disabled", true);
+                //         //$("#options_objimp").prop("disabled", true);
 
-                        // Se habilitan los inputs con los valores a guardar
-                        $("#input_tva_tx").prop("disabled", false);
-                        $("#input_price_base_type").prop("disabled", false);
-                        $("#input_options_objimp").prop("disabled", false)
-                    } else {
-                        // Si tiene IVA, se habilitan los campos de nuevo
-                        $("#tva_tx").val(16);
-                        $("#select_price_base_type").val("TTC");
-                        $("#options_objimp").val("");
+                //         // Se habilitan los inputs con los valores a guardar
+                //         $("#input_tva_tx").prop("disabled", false);
+                //         $("#input_price_base_type").prop("disabled", false);
+                //         $("#input_options_objimp").prop("disabled", false)
+                //     } else {
+                //         // Si tiene IVA, se habilitan los campos de nuevo
+                //         $("#tva_tx").val(16);
+                //         $("#select_price_base_type").val("TTC");
+                //         $("#options_objimp").val("");
 
-                        $("#tva_tx").prop("disabled", false);
-                        $("#select_price_base_type").prop("disabled", false);
-                        $("#options_objimp").prop("disabled", false);
+                //         $("#tva_tx").prop("disabled", false);
+                //         $("#select_price_base_type").prop("disabled", false);
+                //         $("#options_objimp").prop("disabled", false);
 
-                        $("#input_tva_tx").prop("disabled", true);
-                        $("#input_price_base_type").prop("disabled", true);
-                        $("#input_options_objimp").prop("disabled", true);
-                    }
+                //         $("#input_tva_tx").prop("disabled", true);
+                //         $("#input_price_base_type").prop("disabled", true);
+                //         //$("#input_options_objimp").prop("disabled", true);
+                //     }
 					
-				});
+				// });
 
                 // Cálculo automático del precio de venta mínimo al cambiar descuento o precio de venta
                 var item_price = document.getElementById("price");
