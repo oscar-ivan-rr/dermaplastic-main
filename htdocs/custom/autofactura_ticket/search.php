@@ -190,7 +190,7 @@ if( isset($_POST['clave_factura']) ) {
         
     }
     //$date_lim = date('Y-m-d', strtotime($auxiliar['date_lim']. ' + 3 days'));
-    $date_lim = date('Y-m-t') //LAST DAY OF THE MONTH;
+    $date_lim = date('Y-m-t'); //LAST DAY OF THE MONTH;
     $array_resultados[$i+5] = array('date_lim'=>$date_lim,'current_date'=>$current_date);
     if( ($current_date > $date_lim) && $found && !$timbrada ){
         $json_resultado = json_encode(array('error' => 1, 'current_date' => $current_date, 'date_limit' => $date_lim));
