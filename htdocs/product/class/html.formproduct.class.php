@@ -20,7 +20,6 @@
  *	\file       htdocs/product/class/html.formproduct.class.php
  *	\brief      Fichier de la classe des fonctions predefinie de composants html
  */
-
 require_once DOL_DOCUMENT_ROOT.'/product/stock/class/entrepot.class.php';
 
 /**
@@ -54,6 +53,115 @@ class FormProduct
 		$this->db = $db;
 	}
 
+		public function loadWarehousesOC($fk_product = 0, $warehouseIds = array('26'))
+	{
+		global $conf, $langs, $user;
+		$orderBy = 'e.ref';
+		if (empty($fk_product) && count($this->cache_warehouses)) return 0; // Cache already loaded and we do not want a list with information specific to a product
+
+		$ids = implode(',', $warehouseIds);
+		$sql = "SELECT e.rowid, e.ref as label, e.description, e.fk_parent";
+		$sql .= ", ps.reel as stock";
+		$sql .= " FROM ".MAIN_DB_PREFIX."entrepot as e";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_stock as ps on ps.fk_entrepot = e.rowid";
+		if (!empty($fk_product))
+		{
+			$sql .= " AND ps.fk_product = '".$fk_product."'";
+		}
+		$sql .= " WHERE (e.entity IN (".getEntity('stock').") AND e.rowid IN ($user->fk_warehouse)";
+		$sql .= " AND e.statut = 1 ) OR e.ref = 'CEDIS'";
+		$sql .= " ORDER BY ".$orderBy;
+		$resql = $this->db->query($sql);
+		if ($resql)
+		{
+			$num = $this->db->num_rows($resql);
+			$i = 0;
+			while ($i < $num)
+			{
+				$obj = $this->db->fetch_object($resql);
+				if ($sumStock) $obj->stock = price2num($obj->stock, 5);
+				$this->cache_warehouses[$obj->rowid]['id'] = $obj->rowid;
+				$this->cache_warehouses[$obj->rowid]['label'] = $obj->label;
+				$this->cache_warehouses[$obj->rowid]['parent_id'] = $obj->fk_parent;
+				$this->cache_warehouses[$obj->rowid]['description'] = $obj->description;
+				$this->cache_warehouses[$obj->rowid]['stock'] = $obj->stock;
+				$i++;
+			}
+
+			// Full label init
+			foreach ($this->cache_warehouses as $obj_rowid=>$tab) {
+				$this->cache_warehouses[$obj_rowid]['full_label'] = $this->get_parent_path($tab);
+			}
+
+			return $num;
+		}
+		else
+		{
+			dol_print_error($this->db);
+			return -1;
+		}
+	}
+		public function selectWarehousesOC($selected = '', $htmlname = 'idwarehouse', $fk_product = 0, $showstock = 0, $forcecombo = 0, $events = array(), $morecss = 'minwidth200')
+	{
+		global $conf,$langs,$user;
+		$out='';
+		//if (!empty($fk_product))  $this->cache_warehouses = array();
+		$this->loadWarehousesOC($fk_product);
+		$nbofwarehouses=count($this->cache_warehouses);
+
+		if ($conf->use_javascript_ajax && ! $forcecombo)
+		{
+			include_once DOL_DOCUMENT_ROOT . '/core/lib/ajax.lib.php';
+			$comboenhancement = ajax_combobox($htmlname, $events);
+			$out.= $comboenhancement;
+		}
+
+		$out.='<select class="flat'.($morecss?' '.$morecss:'').'" id="'.$htmlname.'" name="'.($htmlname).'">';
+		foreach($this->cache_warehouses as $id => $arraytypes)
+		{
+			$label='';
+			if ($showfullpath) $label.=$arraytypes['full_label'];
+			else $label.=$arraytypes['label'];
+			if (($fk_product || ($showstock > 0)) && ($arraytypes['stock'] != 0 || ($showstock > 0)))
+			{
+				if ($arraytypes['stock'] <= 0) {
+					$label.=' <span class= \'text-warning\'>('.$langs->trans("Stock").':'.$arraytypes['stock'].')</span>';
+				}
+				else
+				{
+					$label.=' <span class=\'opacitymedium\'>('.$langs->trans("Stock").':'.$arraytypes['stock'].')</span>';
+				}
+			}
+			if( $userWarehouse ){
+				if( $user->fk_warehouse == $id ){
+					$out.='<option value="'.$id.'"';
+					if ($selected == $id || ($selected == 'ifone' && $nbofwarehouses == 1)) $out.=' selected';
+					$out.=' data-html="'.dol_escape_htmltag($label).'"';
+					$out.='>';
+					$out.=$label;
+					$out.='</option>';
+				}elseif( $user->fk_warehouse == '-1' ){
+					$out.='<option value="'.$id.'"';
+					if ($selected == $id || ($selected == 'ifone' && $nbofwarehouses == 1)) $out.=' selected';
+					$out.=' data-html="'.dol_escape_htmltag($label).'"';
+					$out.='>';
+					$out.=$label;
+					$out.='</option>';
+				}
+			}else{
+				$out.='<option value="'.$id.'"';
+				if ($selected == $id || ($selected == 'ifone' && $nbofwarehouses == 1)) $out.=' selected';
+				$out.=' data-html="'.dol_escape_htmltag($label).'"';
+				$out.='>';
+				$out.=$label;
+				$out.='</option>';
+			}
+		}
+		$out.='</select>';
+		
+		return $out;
+	}
+
 
     /**
      * Load in cache array list of warehouses
@@ -74,7 +182,7 @@ class FormProduct
      */
 	public function loadWarehouses($fk_product = 0, $batch = '', $status = '', $sumStock = true, $exclude = '', $stockMin = false, $orderBy = 'e.ref')
 	{
-		global $conf, $langs;
+		global $conf, $langs, $user;
 
 		if (empty($fk_product) && count($this->cache_warehouses)) return 0; // Cache already loaded and we do not want a list with information specific to a product
 

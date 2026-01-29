@@ -946,10 +946,11 @@ if ($id > 0 || !empty($ref)) {
 							// Warehouse
 							print '<td class="right">';
 							if (count($listwarehouses) > 1) {
-								if ($user->rights->stock->show_all_warehouses)
-									print $formproduct->selectWarehouses(GETPOST("entrepot" . $suffix) ? GETPOST("entrepot" . $suffix) : ($objp->fk_default_warehouse ? $objp->fk_default_warehouse : ''), "entrepot" . $suffix, '', 1, 0, $objp->fk_product, '', 1, 0, null, 'csswarehouse' . $suffix);
+								if ($user->rights->stock->show_all_warehouses) {
+									print $formproduct->selectWarehouses(GETPOST("entrepot" . $suffix) ? GETPOST("entrepot" . $suffix) : ($objp->fk_default_warehouse ? $objp->fk_default_warehouse : ''), "entrepot" . $suffix, '', 1, 0, $objp->fk_product, '', 1, 0, null, 'csswarehouse' . $suffix);	
+								}
 								else
-									print $formproduct->selectWarehouses($user->fk_warehouse, "entrepot" . $suffix, '', 1, 1, $objp->fk_product, '', 1, 0, null, 'csswarehouse' . $suffix);
+									print $formproduct->selectWarehousesOC($user->fk_warehouse, "entrepot" . $suffix, $objp->fk_product, '', 1, 1, 1, null, 'csswarehouse' . $suffix);
 							} elseif (count($listwarehouses) == 1) {
 								print $formproduct->selectWarehouses(GETPOST("entrepot" . $suffix) ? GETPOST("entrepot" . $suffix) : ($objp->fk_default_warehouse ? $objp->fk_default_warehouse : ''), "entrepot" . $suffix, '', 0, 0, $objp->fk_product, '', 1, 0, null, 'csswarehouse' . $suffix);
 							} else {
