@@ -1105,6 +1105,39 @@ if ($action == "valid" || $action == "history" || ($action == "delete" && $invoi
 	</script>';
 }
 
+function getProductCategories($fkProduct, $invoice, $db) {
+	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	$c = new Categorie($db);
+	return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
+}
+
+function isCategoryFound($categoryId, $invoice, $db) {
+	foreach ($invoice->lines as $line) {
+		$categories = getProductCategories($line->fk_product, $invoice, $db);
+		if(in_array($categoryId, $categories)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+$category1Found = isCategoryFound('14', $invoice, $db); //COSMETICOS;
+$category2Found = isCategoryFound('21', $invoice, $db); // LIMPIEZA;
+
+if($category1Found && $category2Found) {
+	//APPLY CUSTOM DISCOUNT
+	foreach ($invoice->lines as $line)
+		{
+		$categories = getProductCategories($line->fk_product, $invoice, $db);
+		if(in_array(14, $categories) || in_array(21, $categories)) {
+			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, 15, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+		}
+	}
+	$invoice->fetch($placeid);
+}
+
+
 /*
  * View
  */
