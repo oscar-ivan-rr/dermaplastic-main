@@ -40,7 +40,7 @@ if (empty($object) || ! is_object($object))
 	exit;
 }
 
-print "<!-- BEGIN PHP TEMPLATE objectline_title.tpl.php -->\n";
+print "<!-- BEGIN PHP TEMPLATE objectline_title.tpl.php CORE -->\n";
 
 // Title line
 print "<thead>\n";

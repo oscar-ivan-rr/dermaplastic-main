@@ -41,7 +41,7 @@
 // Protection to avoid direct call of template
 
 use function Sabre\Uri\split;
-
+ini_set('display_errors', '0');
 if (empty($object) || !is_object($object))
 {
 	print "Error, template page can't be called as URL";
@@ -49,7 +49,7 @@ if (empty($object) || !is_object($object))
 }
 
 
-global $forceall, $senderissupplier, $inputalsopricewithtax, $outputalsopricetotalwithtax;
+global $forceall, $senderissupplier, $inputalsopricewithtax, $outputalsopricetotalwithtax, $db;
 
 $usemargins = 0;
 if (!empty($conf->margin->enabled) && !empty($object->element) && in_array($object->element, array('facture', 'facturerec', 'propal', 'commande'))) $usemargins = 1;
@@ -271,8 +271,30 @@ if ((($line->info_bits & 2) != 2) && $line->special_code != 3) {
 	// I comment this because it shows info even when not required
 	// for example always visible on invoice but must be visible only if stock module on and stock decrease option is on invoice validation and status is not validated
 	// must also not be output for most entities (proposal, intervention, ...)
-	//if($line->qty > $line->stock) print img_picto($langs->trans("StockTooLow"),"warning", 'style="vertical-align: bottom;"')." ";
 	print price($line->qty, 0, '', 0, 0); // Yes, it is a quantity, not a price, but we just want the formating role of function price
+	if($this->table_element == 'commande_fournisseur') {
+		$sql = "SELECT ps.rowid, ps.reel, ps.fk_entrepot";
+		$sql .= " FROM ".MAIN_DB_PREFIX."product_stock as ps";
+		$sql .= " WHERE ps.fk_entrepot = " . $line->fk_entrepot;
+		$sql .= " AND ps.fk_product = ".$line->fk_product;
+
+		$resql = $db->query($sql);
+		$product_stock = new stdClass();
+		if($resql) {
+			$product_stock = $db->fetch_object($resql);
+		}
+		else {
+			$product_stock = (object) array('reel' => 0);
+		}
+		$reel = (int) $product_stock->reel;
+
+		$sql = 'SELECT * FROM '. MAIN_DB_PREFIX .'product_warehouse_properties WHERE fk_product='. $line->fk_product .' AND fk_entrepot='. $this->fk_entrepot .' LIMIT 1';
+		$resql = $db->query($sql);
+		$row = $db->fetch_object($resql);
+		if($row) {
+			if($line->qty + $reel > $row->stock_max) print img_picto($langs->trans("Stock rebasa el maximo (". $row->stock_max .") "),"warning", 'style="vertical-align: bottom;"')." ";
+		}
+	}
 	if( $this->table_element_line == 'propaldet' && $this->statut == 2  && $line->qty > $line->stock_sign){
 		$text = "<center><b>Stock Insuficiente</b></center><br>";
 		$text .= "Stock al ".date('d/m/Y', $this->date_cloture) ." = ". $line->stock_sign ."<br>";

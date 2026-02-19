@@ -1247,3 +1247,35 @@ if($object->element == 'order_supplier' && $this->statut == 0) {
 }
 
 print "<!-- END PHP TEMPLATE objectline_create.tpl.php -->\n";
+
+?>
+
+<script>
+	$(document).ready(() => {
+		$('#barcode_input').autocomplete({
+			minLength: 2,
+			select: ( event, ui ) => {
+				const enterEvent = new KeyboardEvent('keydown', {
+					key: 'Enter',
+					code: 'Enter', // The code for the physical key
+					keyCode: 13,   // Deprecated, but good for compatibility
+					which: 13,     // Deprecated, but good for compatibility
+					bubbles: true, // Event bubbles up through the DOM
+					cancelable: true // Event can be canceled
+				});
+				$('#barcode_input').val(ui.item.value);
+				document.getElementById('barcode_input').dispatchEvent(enterEvent);
+			},
+			source: (request, response) => {
+				$.ajax({
+					url: `/core/tpl/ajax/products.php?search=${request.term}`,
+					dataType: "json",
+					method: "GET",
+					success: (data) => {
+						response(data); 
+					},
+				})
+			}
+		})
+	})
+</script>

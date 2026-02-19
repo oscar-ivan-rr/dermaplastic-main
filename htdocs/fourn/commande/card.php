@@ -211,7 +211,7 @@ if (empty($reshook))
 	}
 
     // Edit Thirdparty
-    if (!empty($conf->global->MAIN_CAN_EDIT_SUPPLIER_ON_SUPPLIER_ORDER) && $action == 'set_thirdparty' && $user->rights->fournisseur->commande->creer && $object->statut == CommandeFournisseur::STATUS_DRAFT)
+    if (!empty($conf->global->MAIN_CAN_EDIT_SUPPLIER_ON_SUPPLIER_ORDER) && $action == 'set_thirdparty' && $user->rights->fournisseur->commande->creer)
     {
         $new_socid = GETPOST('new_socid', 'int');
         if (!empty($new_socid) && $new_socid != $object->thirdparty->id) {
@@ -229,43 +229,43 @@ if (empty($reshook))
             else {
                 $db->commit();
 
-                // Replace prices for each lines by new supplier prices
-                foreach ($object->lines as $l) {
-                    $sql = 'SELECT price, unitprice, tva_tx, ref_fourn';
-                    $sql .= ' FROM '.MAIN_DB_PREFIX.'product_fournisseur_price';
-                    $sql .= ' WHERE fk_product='.$l->fk_product;
-                    $sql .= ' AND fk_soc='.$new_socid;
-                    $sql .= ' ORDER BY unitprice ASC';
+                // // Replace prices for each lines by new supplier prices
+                // foreach ($object->lines as $l) {
+                //     $sql = 'SELECT price, unitprice, tva_tx, ref_fourn';
+                //     $sql .= ' FROM '.MAIN_DB_PREFIX.'product_fournisseur_price';
+                //     $sql .= ' WHERE fk_product='.$l->fk_product;
+                //     $sql .= ' AND fk_soc='.$new_socid;
+                //     $sql .= ' ORDER BY unitprice ASC';
 
-                    $resql = $db->query($sql);
-                    if ($resql) {
-                        $num_row = $db->num_rows($resql);
-                        if (empty($num_row)) {
-                            // No product price for this supplier !
-                            $l->subprice = 0;
-                            $l->total_ht = 0;
-                            $l->total_tva = 0;
-                            $l->total_ttc = 0;
-                            $l->ref_supplier = '';
-                            $l->update();
-                        }
-                        else {
-                            // No need for loop to keep best supplier price
-                            $obj = $db->fetch_object($resql);
-                            $l->subprice = $obj->unitprice;
-                            $l->total_ht = $obj->price;
-                            $l->tva_tx = $obj->tva_tx;
-                            $l->total_tva = $l->total_ht * ($obj->tva_tx / 100);
-                            $l->total_ttc = $l->total_ht + $l->total_tva;
-                            $l->ref_supplier = $obj->ref_fourn;
-                            $l->update();
-                        }
-                    }
-                    else {
-                        dol_print_error($db);
-                    }
-                    $db->free($resql);
-                }
+                //     $resql = $db->query($sql);
+                //     if ($resql) {
+                //         $num_row = $db->num_rows($resql);
+                //         if (empty($num_row)) {
+                //             // No product price for this supplier !
+                //             $l->subprice = 0;
+                //             $l->total_ht = 0;
+                //             $l->total_tva = 0;
+                //             $l->total_ttc = 0;
+                //             $l->ref_supplier = '';
+                //             $l->update();
+                //         }
+                //         else {
+                //             // No need for loop to keep best supplier price
+                //             $obj = $db->fetch_object($resql);
+                //             $l->subprice = $obj->unitprice;
+                //             $l->total_ht = $obj->price;
+                //             $l->tva_tx = $obj->tva_tx;
+                //             $l->total_tva = $l->total_ht * ($obj->tva_tx / 100);
+                //             $l->total_ttc = $l->total_ht + $l->total_tva;
+                //             $l->ref_supplier = $obj->ref_fourn;
+                //             $l->update();
+                //         }
+                //     }
+                //     else {
+                //         dol_print_error($db);
+                //     }
+                //     $db->free($resql);
+                // }
                 $object->update_price();
             }
         }
@@ -2194,7 +2194,15 @@ elseif (!empty($object->id))
         $morehtmlref .= '</form>';
     }
     if (empty($conf->global->MAIN_CAN_EDIT_SUPPLIER_ON_SUPPLIER_ORDER) || $action != 'edit_thirdparty') {
-        if (!empty($conf->global->MAIN_CAN_EDIT_SUPPLIER_ON_SUPPLIER_ORDER) && $object->statut == CommandeFournisseur::STATUS_DRAFT) {
+				$statusCantUpdate = array(
+					CommandeFournisseur::STATUS_RECEIVED_PARTIALLY,
+					CommandeFournisseur::STATUS_RECEIVED_COMPLETELY,
+					CommandeFournisseur::STATUS_CANCELED,
+					CommandeFournisseur::STATUS_CANCELED_AFTER_ORDER,
+					CommandeFournisseur::STATUS_REFUSED
+				);
+				//$object->statut == CommandeFournisseur::STATUS_DRAFT
+        if (!empty($conf->global->MAIN_CAN_EDIT_SUPPLIER_ON_SUPPLIER_ORDER) && !in_array($object->statut, $statusCantUpdate)) {
             $morehtmlref .= '<a class="editfielda" href="'.$_SERVER['PHP_SELF'].'?action=edit_thirdparty&amp;id='.$object->id.'">'.img_edit($langs->transnoentitiesnoconv('SetThirdParty')).'</a>';
         }
         $morehtmlref .= ' : '.$object->thirdparty->getNomUrl(1);
@@ -3020,7 +3028,7 @@ elseif (!empty($object->id))
 
             // Force mandatory order method
             print '<tr><td class="fieldrequired">'.$langs->trans("OrderMode").'</td><td>';
-			$formorder->selectInputMethod(7, "methodecommande", 1);
+			$formorder->selectInputMethod('', "methodecommande", 1);
 			print '</td></tr>';
 
 			print '<tr><td>'.$langs->trans("Comment").'</td><td><input size="40" type="text" name="comment" value="'.GETPOST('comment').'"></td></tr>';
