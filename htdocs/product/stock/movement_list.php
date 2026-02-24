@@ -76,6 +76,7 @@ $year = GETPOST("year");
 $month = GETPOST("month");
 $search_ref = GETPOST('search_ref', 'alpha');
 $search_movement = GETPOST("search_movement");
+$search_product_barcode = trim(GETPOST("search_product_barcode"));
 $search_product_ref = trim(GETPOST("search_product_ref"));
 $search_product = trim(GETPOST("search_product"));
 $search_warehouse = trim(GETPOST("search_warehouse"));
@@ -110,6 +111,7 @@ $search_array_options = $extrafields->getOptionalsFromPost($object->table_elemen
 $arrayfields = array(
     'm.rowid'=>array('label'=>$langs->trans("Ref"), 'checked'=>1),
     'm.datem'=>array('label'=>$langs->trans("Date"), 'checked'=>1),
+    'p.barcode'=>array('label'=>$langs->trans("Código de barras"), 'checked'=>1),
     'p.ref'=>array('label'=>$langs->trans("ProductRef"), 'checked'=>1, 'css'=>'maxwidth100'),
     'p.label'=>array('label'=>$langs->trans("ProductLabel"), 'checked'=>1),
     'm.batch'=>array('label'=>$langs->trans("BatchNumberShort"), 'checked'=>1, 'enabled'=>(!empty($conf->productbatch->enabled))),
@@ -170,6 +172,7 @@ if (empty($reshook))
 	    $search_type_mouvement = "";
 	    $search_inventorycode = "";
 	    $search_product_ref = "";
+	    $search_product_barcode = "";
 	    $search_product = "";
 	    $search_warehouse = "";
 	    $search_user = "";
@@ -202,7 +205,7 @@ if($action == 'printpdfcorrection'){
         error_log("Unable to read directory: $dir");
     }
     if ($file == ""){
-        $sql = "SELECT p.ref as product_ref,p.label as product_label,p.rowid as product_id, m.value as qty,";
+        $sql = "SELECT p.barcode, p.ref as product_ref,p.label as product_label,p.rowid as product_id, m.value as qty,";
         $sql .= "  m.datem, e.lieu as entrepot_source_ref, u.firstname as user_firstname, u.lastname as user_lastname,u.login as user_login,";
         $sql .= " m.label,m.inventorycode as code";
         $sql .= " FROM ".MAIN_DB_PREFIX."entrepot as e,";
@@ -552,7 +555,7 @@ $formother = new FormOther($db);
 $formproduct = new FormProduct($db);
 if (!empty($conf->projet->enabled)) $formproject = new FormProjets($db);
 
-$sql = "SELECT p.rowid, p.ref as product_ref, p.label as produit, p.tosell, p.tobuy, p.tobatch, p.fk_product_type as type, p.entity,";
+$sql = "SELECT p.rowid, p.barcode, p.ref as product_ref, p.label as produit, p.tosell, p.tobuy, p.tobatch, p.fk_product_type as type, p.entity,";
 $sql .= " e.ref as warehouse_ref, e.rowid as entrepot_id, e.lieu, e.fk_parent, e.statut,";
 $sql .= " m.rowid as mid, m.value as qty, m.datem, m.fk_user_author, m.label, m.inventorycode, m.fk_origin, m.origintype,";
 $sql .= " m.batch, m.price, ABS(m.value * m.price) as total,";
@@ -590,6 +593,7 @@ if ($contextpage == 'poslist'){
 }else if (!empty($search_movement))      $sql .= natural_search('m.label', $search_movement);
 if (!empty($search_inventorycode)) $sql .= natural_search('m.inventorycode', $search_inventorycode);
 if (!empty($search_product_ref))   $sql .= natural_search('p.ref', $search_product_ref);
+if (!empty($search_product_barcode))   $sql .= natural_search('p.barcode', $search_product_barcode);
 if (!empty($search_product))       $sql .= natural_search('p.label', $search_product);
 if ($search_warehouse != '' && $search_warehouse != '-1')  $sql .= natural_search('e.rowid', $search_warehouse, 2);
 if (!empty($search_user))          $sql .= natural_search('u.login', $search_user);
@@ -630,6 +634,7 @@ if ($action == 'liberarapartado')
     $sql = 'SELECT ';
 	$sql .= 'p.rowid,';
 	$sql .= 'm.active,';
+	$sql .= 'p.barcode,';
 	$sql .= 'p.ref as product_ref,';
 	$sql .= 'p.label as produit,';
 	$sql .= 'p.tosell,';
@@ -872,6 +877,7 @@ if ($resql)
     if ($search_inventorycode)   $param .= '&search_inventorycode='.urlencode($search_inventorycode);
     if ($search_type_mouvement)	 $param .= '&search_type_mouvement='.urlencode($search_type_mouvement);
     if ($search_product_ref)     $param .= '&search_product_ref='.urlencode($search_product_ref);
+    if ($search_product_barcode)     $param .= '&search_product_barcode='.urlencode($search_product_barcode);
     if ($search_product)         $param .= '&search_product='.urlencode($search_product);
     if ($search_batch)           $param .= '&search_batch='.urlencode($search_batch);
     if ($search_warehouse > 0)   $param .= '&search_warehouse='.urlencode($search_warehouse);
@@ -976,6 +982,13 @@ if ($resql)
 	    $syear = $year ? $year : -1;
 	    print '<input class="flat maxwidth50" type="text" maxlength="4" placeholder="'.dol_escape_htmltag($langs->trans("Year")).'" name="year" value="'.($syear > 0 ? $syear : '').'">';
 	    //print $formother->selectyear($syear,'year',1, 20, 5);
+	    print '</td>';
+    }
+    if (!empty($arrayfields['p.barcode']['checked']))
+    {
+	    // Product Ref
+	    print '<td class="liste_titre left">';
+	    print '<input class="flat maxwidth75" type="text" name="search_product_barcode" value="'.dol_escape_htmltag($search_product_barcode).'">';
 	    print '</td>';
     }
     if (!empty($arrayfields['p.ref']['checked']))
@@ -1188,6 +1201,9 @@ if ($resql)
     if (!empty($arrayfields['m.datem']['checked'])) {
         print_liste_field_titre($arrayfields['m.datem']['label'], $_SERVER["PHP_SELF"], 'm.datem', '', $param, '', $sortfield, $sortorder);
     }
+    if (!empty($arrayfields['p.barcode']['checked'])) {
+    print_liste_field_titre($arrayfields['p.barcode']['label'], $_SERVER["PHP_SELF"], 'p.barcode', '', $param, '', $sortfield, $sortorder);
+    }
     if (!empty($arrayfields['p.ref']['checked'])) {
         print_liste_field_titre($arrayfields['p.ref']['label'], $_SERVER["PHP_SELF"], 'p.ref', '', $param, '', $sortfield, $sortorder);
     }
@@ -1280,6 +1296,7 @@ if ($resql)
         $productstatic->status = $objp->tosell;
         $productstatic->status_buy = $objp->tobuy;
         $productstatic->status_batch = $objp->tobatch;
+        $productstatic->barcode = $objp->barcode;
 
         $productlot->id = $objp->lotid;
         $productlot->batch = $objp->batch;
@@ -1327,6 +1344,10 @@ if ($resql)
 	        print '<td class="nowraponall">'.dol_print_date($db->jdate($objp->datem), 'dayhour').'</td>';
             if (!$i) $totalarray['nbfield']++;
         }
+        print '<td class="nowraponall">';
+	    print $productstatic->barcode;
+        print "</td>\n";
+        if (!$i) $totalarray['nbfield']++;
         if (!empty($arrayfields['p.ref']['checked']))
         {
 	        // Product ref
@@ -1335,6 +1356,7 @@ if ($resql)
 	        print "</td>\n";
             if (!$i) $totalarray['nbfield']++;
         }
+
         if (!empty($arrayfields['p.label']['checked']))
         {
 	        // Product label

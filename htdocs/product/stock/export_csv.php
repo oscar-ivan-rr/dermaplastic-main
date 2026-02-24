@@ -30,16 +30,17 @@ $objPHPExcel->setActiveSheetIndex(0);
 //Cabeceras de Excel
 $objPHPExcel->getActiveSheet()->SetCellValue('A1', "Referencia.");
 $objPHPExcel->getActiveSheet()->SetCellValue('B1', "Fecha");
-$objPHPExcel->getActiveSheet()->SetCellValue('C1', "Producto");
-$objPHPExcel->getActiveSheet()->SetCellValue('D1', "Almacén");
-$objPHPExcel->getActiveSheet()->SetCellValue('E1', "Autor");
-$objPHPExcel->getActiveSheet()->SetCellValue('F1', "Etiqueta de Movimiento");
-$objPHPExcel->getActiveSheet()->SetCellValue('G1', "Tipo");
-$objPHPExcel->getActiveSheet()->SetCellValue('H1', "Cantidad");
-$objPHPExcel->getActiveSheet()->SetCellValue('I1', "Precio de Compra");
-$objPHPExcel->getActiveSheet()->SetCellValue('J1', "Subtotal");
-$objPHPExcel->getActiveSheet()->SetCellValue('K1', "IVA");
-$objPHPExcel->getActiveSheet()->SetCellValue('L1', "Total");
+$objPHPExcel->getActiveSheet()->SetCellValue('C1', "Código de barras");
+$objPHPExcel->getActiveSheet()->SetCellValue('D1', "Producto");
+$objPHPExcel->getActiveSheet()->SetCellValue('E1', "Almacén");
+$objPHPExcel->getActiveSheet()->SetCellValue('F1', "Autor");
+$objPHPExcel->getActiveSheet()->SetCellValue('G1', "Etiqueta de Movimiento");
+$objPHPExcel->getActiveSheet()->SetCellValue('H1', "Tipo");
+$objPHPExcel->getActiveSheet()->SetCellValue('I1', "Cantidad");
+$objPHPExcel->getActiveSheet()->SetCellValue('J1', "Precio de Compra");
+$objPHPExcel->getActiveSheet()->SetCellValue('K1', "Subtotal");
+$objPHPExcel->getActiveSheet()->SetCellValue('L1', "IVA");
+$objPHPExcel->getActiveSheet()->SetCellValue('M1', "Total");
 
 $rowCount = 2;
 
@@ -83,6 +84,7 @@ while($i < min($num, $limit)){
 
     $productstatic->id = $row->rowid;
     $productstatic->ref = $row->product_ref;
+    $productstatic->barcode = $row->barcode;
     $productstatic->label = $row->produit;
     $productstatic->type = $row->type;
     $productstatic->entity = $row->entity;
@@ -115,16 +117,17 @@ while($i < min($num, $limit)){
 
     $objPHPExcel->getActiveSheet()->SetCellValue('A'.$rowCount, $row->mid);
     $objPHPExcel->getActiveSheet()->SetCellValue('B'.$rowCount, dol_print_date($db->jdate($row->datem), 'dayhour', 'tzuserrel'));
-    $objPHPExcel->getActiveSheet()->SetCellValue('C'.$rowCount, $row->product_ref);
-    $objPHPExcel->getActiveSheet()->SetCellValue('D'.$rowCount, strip_tags($warehousestatic->getNomUrl(0)));
-    $objPHPExcel->getActiveSheet()->SetCellValue('E'.$rowCount, strip_tags($userstatic->getNomUrl(-1)));
-    $objPHPExcel->getActiveSheet()->SetCellValue('F'.$rowCount, $row->label);
-    $objPHPExcel->getActiveSheet()->SetCellValue('G'.$rowCount, $type);
-    $objPHPExcel->getActiveSheet()->SetCellValue('H'.$rowCount, $row->qty);
-    $objPHPExcel->getActiveSheet()->SetCellValue('I'.$rowCount, price($row->price));
-    $objPHPExcel->getActiveSheet()->SetCellValue('J'.$rowCount, price($row->subtotal));
-    $objPHPExcel->getActiveSheet()->SetCellValue('K'.$rowCount, price($row->tva));
-    $objPHPExcel->getActiveSheet()->SetCellValue('L'.$rowCount, price($row->total));
+    $objPHPExcel->getActiveSheet()->SetCellValue('C'.$rowCount, $row->barcode);
+    $objPHPExcel->getActiveSheet()->SetCellValue('D'.$rowCount, $row->product_ref);
+    $objPHPExcel->getActiveSheet()->SetCellValue('E'.$rowCount, strip_tags($warehousestatic->getNomUrl(0)));
+    $objPHPExcel->getActiveSheet()->SetCellValue('F'.$rowCount, strip_tags($userstatic->getNomUrl(-1)));
+    $objPHPExcel->getActiveSheet()->SetCellValue('G'.$rowCount, $row->label);
+    $objPHPExcel->getActiveSheet()->SetCellValue('H'.$rowCount, $type);
+    $objPHPExcel->getActiveSheet()->SetCellValue('I'.$rowCount, $row->qty);
+    $objPHPExcel->getActiveSheet()->SetCellValue('J'.$rowCount, price($row->price));
+    $objPHPExcel->getActiveSheet()->SetCellValue('K'.$rowCount, price($row->subtotal));
+    $objPHPExcel->getActiveSheet()->SetCellValue('L'.$rowCount, price($row->tva));
+    $objPHPExcel->getActiveSheet()->SetCellValue('M'.$rowCount, price($row->total));
 
     $subtotal += $row->subtotal;
     $tva += $row->tva;
