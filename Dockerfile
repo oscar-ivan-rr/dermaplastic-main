@@ -62,7 +62,7 @@ RUN echo "max_input_vars = 10000" >> "$PHP_INI_DIR/php.ini"
 
 #Disable cron for testing
 COPY list.cron .
-#RUN crontab list.cron
+RUN crontab list.cron
 
 # Script para extraer variables de entorno y ponerlas en /etc/environment_ext
 COPY extract_variables.sh /etc/extract_variables.sh
@@ -73,7 +73,7 @@ EXPOSE 80
 FROM base as production
 COPY . .
 RUN chown -R www-data:www-data /var/www/html/documents
-#RUN chmod +x /var/www/html/scripts/cron/cron_run_jobs.php
+RUN chmod +x /var/www/html/scripts/cron/cron_run_jobs.php
 CMD /bin/sh -c "printenv > /etc/environment && /etc/extract_variables.sh && service cron start && apache2-foreground"
 
 

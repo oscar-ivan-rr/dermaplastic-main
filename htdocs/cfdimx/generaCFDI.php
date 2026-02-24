@@ -2566,7 +2566,6 @@ if (
 				);
 				$pruebas['result'] = $result;
 				//Timbrado de Factura Correcto
-				die;
 				if ($result["return"]["rsp"] == 1 || $result["return"]["rsp"] == 307) {
 					//Se actualiza el control con el estatus de factura timbrada
 					$sql_update_control = "UPDATE " . MAIN_DB_PREFIX . "cfdimx_control_timbrado";

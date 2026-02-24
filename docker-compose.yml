@@ -5,16 +5,18 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-      target: development
+      target: production
     env_file: .env
     container_name: "${APP_NAME}-php"
     volumes:
-      - /Users/oscarramirez/Documents/dev/dermaplastic-main:/var/www/html/
+      - documents:/var/www/html/documents
+    restart: always
     ports:
       - "${APP_PORT:-8080}:80"
 volumes:
   documents:
     driver: local
+
 networks:
   default:
     name: "dermaplastic"
