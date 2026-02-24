@@ -1,6 +1,6 @@
 <?php
 ini_set('display_errors', '1');
-require '../main.inc.php';
+require 'main.inc.php';
 $handle = fopen('stocks.csv','r');
 
 $rows = array();
@@ -16,7 +16,7 @@ while ( ($data = fgetcsv($handle, 100, ',') ) !== FALSE ) {
 }
 
 $c = count($rows);
-for($i = 1; $i<$c; $i++) {
+for($i = 1; $i<2; $i++) {
   $line = $rows[$i];
   $barcode = $line[1];
   $min = $line[2];
@@ -27,5 +27,6 @@ for($i = 1; $i<$c; $i++) {
   $productId = $product->rowid;
   $sql = "UPDATE llx_product_warehouse_properties SET desiredstock=$min,stock_max=$max WHERE fk_product=$productId AND fk_entrepot=$warehouseId";
   $db->query($sql);
+  echo $barcode . '<br/>';
 }
 ?>
