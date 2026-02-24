@@ -786,6 +786,7 @@ if ($ajustar_conceptos == 1) {
 		$retencImpuestoISR = $conceptos_rif[$i]['retencImpuestoISR'];
 		$descuento = $conceptos_rif[$i]['descuento'];
 		$cuentaPredial = $conceptos_rif[$i]['cuentaPredial'];
+
 	}
 
 	$total_rif = $rif_subtotal + $rif_iva;
@@ -2564,8 +2565,8 @@ if (
 					"adicionales" => $adicionales
 				);
 				$pruebas['result'] = $result;
-
 				//Timbrado de Factura Correcto
+				die;
 				if ($result["return"]["rsp"] == 1 || $result["return"]["rsp"] == 307) {
 					//Se actualiza el control con el estatus de factura timbrada
 					$sql_update_control = "UPDATE " . MAIN_DB_PREFIX . "cfdimx_control_timbrado";
@@ -2759,7 +2760,7 @@ if (
 						";
 					}
 					dol_syslog('SQL_Timbrado:' . $insert);
-
+					echo $insert;
 					$rr = $db->query($insert);
 					if (!$rr) {
 						if (strtoupper($serie) == ''  ||  $folio == '') {

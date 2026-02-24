@@ -848,11 +848,11 @@ function isCategoryFound($categoryId, $invoice, $db) {
 }
 
 function clearDiscounts($lines, $db, $invoice) {
+		$customer = new Societe($db);
+		$customer->fetch($invoice->socid);
 		foreach($lines as $line) {
 			$prod = new Product($db);
 			$prod->fetch($line->fk_product);
-			$customer = new Societe($db);
-			$customer->fetch($invoice->socid);
 			$descuento = ($prod->temp_discount != 0) ? $prod->temp_discount : (($prod->desc_max != 0) ? (($prod->desc_max >= 10) ? $customer->remise_percent : $prod->desc_max) : 0);
 	
 			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $descuento, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
@@ -873,8 +873,6 @@ foreach ($invoice->lines as $line)
 		$applyDiscontLines2[] = $line;
 	}
 }
-var_dump(count($applyDiscontLines));
-var_dump(count($applyDiscontLines2));
 
 clearDiscounts($applyDiscontLines, $db, $invoice);
 clearDiscounts($applyDiscontLines2, $db, $invoice);

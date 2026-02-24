@@ -1,6 +1,6 @@
 <?php
 ini_set('display_errors', '1');
-require '../main.inc.php';
+require '../../main.inc.php';
 $handle = fopen('stocks.csv','r');
 
 $rows = array();
