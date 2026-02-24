@@ -16,7 +16,7 @@ while ( ($data = fgetcsv($handle, 100, ',') ) !== FALSE ) {
 }
 
 $c = count($rows);
-for($i = 1; $i<2; $i++) {
+for($i = 1; $i<$c; $i++) {
   $line = $rows[$i];
   $barcode = $line[1];
   $min = $line[2];
