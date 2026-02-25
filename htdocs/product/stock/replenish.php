@@ -34,7 +34,7 @@ require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once './lib/replenishment.lib.php';
-
+ini_set('display_errors', '1');
 // Load translation files required by the page
 $langs->loadLangs(array('products', 'stocks', 'orders'));
 
@@ -64,7 +64,6 @@ $alreadyordered = GETPOST('alreadyordered', 'alpha');
 $selectedSearchRotation = GETPOST('rotation_id', 'alpha');
 /** Filtered by Warehouse */
 $selectedSearchWarehouse = GETPOST('entrepot_id', 'alpha') ? GETPOST('entrepot_id', 'alpha') : $user->fk_warehouse;
-
 $fourn_id = GETPOST('fourn_id', 'int');
 $fk_supplier = GETPOST('fk_supplier', 'int');
 $fk_entrepot = GETPOST('fk_entrepot', 'int');
@@ -834,18 +833,19 @@ print '</div>';
 
 // Filter by Warehouse
 $warehouse = [0 => ''];
-$sql = "SELECT rowid, ref FROM ".MAIN_DB_PREFIX."entrepot WHERE statut = 1";
-
-$res = $db->query($sql);
+$sql = "SELECT rowid, ref, fk_parent FROM ".MAIN_DB_PREFIX."entrepot WHERE statut = 1";
 $formproduct = new FormProduct($db);
-while($item = $db->fetch_object($res)){
-	$warehouse[$item->rowid] = $item->ref;
+$formproduct->loadWarehouses();
+$res = $db->query($sql);
+
+foreach($formproduct->cache_warehouses as $rowid => $w) {
+	$warehouse[$rowid] = $w['full_label'];
 }
+
 if($user->rights->stock->show_all_warehouses){
 	print '<div class="divsearchfield" style="margin-top: 8px;">';
 	print $langs->trans('Warehouse') . ': ';
-	print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'entrepot_id', 0);
-	//print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
+	print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
 	print '</div>';
 }else{
 	$entrepot = new Entrepot($db);
@@ -855,7 +855,7 @@ if($user->rights->stock->show_all_warehouses){
 	print $langs->trans('Warehouse') . ': ';
 	$warehouse = array();
 	$warehouse[$entrepot->id] = $entrepot->ref;
-	print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'entrepot_id', 0, 1);
+	print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
 	print '</div>';
 }
 print '</td></tr>';
