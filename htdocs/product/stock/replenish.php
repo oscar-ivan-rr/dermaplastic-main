@@ -916,6 +916,9 @@ print "</tr>\n";
 
 while ($i < ($limit ? min($num, $limit) : $num))
 {
+	if(!$fk_supplier) {
+		continue;
+	}
 	$objp = $db->fetch_object($resql);
 
 	if (!empty($conf->global->STOCK_SUPPORTS_SERVICES) || $objp->fk_product_type == 0)
