@@ -34,7 +34,7 @@ require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once './lib/replenishment.lib.php';
-ini_set('display_errors', '1');
+ini_set('display_errors', '0');
 // Load translation files required by the page
 $langs->loadLangs(array('products', 'stocks', 'orders'));
 
