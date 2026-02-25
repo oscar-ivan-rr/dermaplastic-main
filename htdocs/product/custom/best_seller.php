@@ -133,7 +133,7 @@ if(empty($group)){
 		$sql .= ")))";
 	}
 } else {
-	$sql = "SELECT DISTINCT p.rowid as prodid, p.ref as prodref, p.barcode, COALESCE(qty_sum, 0) as qty";
+	$sql = "SELECT DISTINCT p.rowid as prodid, p.barcode, p.ref as prodref, p.barcode, COALESCE(qty_sum, 0) as qty";
 	$sql .= ", COALESCE(sum_subquery.cost_price, 0) as cost, (sum_subquery.total_ht - COALESCE(sum_subquery.cost_price, 0)) as profit, (sum_subquery.price - COALESCE(sum_subquery.cost_price, 0)) as profit_without_disc";
 	$sql .= ", sum_subquery.price, sum_subquery.total_ht, sum_subquery.paye FROM llx_product p ";
 	$sql .= "JOIN (SELECT d.fk_product as product_id, SUM(d.buy_price_ht * d.qty) as cost_price, SUM(d.qty) as qty_sum, SUM(d.subprice * d.qty) as price, SUM(d.total_ht) as total_ht, f.paye ";
@@ -228,6 +228,7 @@ if ($sqlexport) {
 		if (empty($group2)){
 			$titles = array(
 				$langs->trans("Ref"),
+				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				$langs->trans("Customer"),
 				utf8_decode( "Etiquetas/Categorías"),
@@ -243,6 +244,7 @@ if ($sqlexport) {
 			);
 		} else {
 			$titles = array(
+				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				utf8_decode( "Etiquetas/Categorías"),
 				$langs->trans("Qty"),
@@ -269,6 +271,7 @@ if ($sqlexport) {
             $categories = $cat->containing($row->prodid, 'product', 'label');
 			$out = array();
 			if (empty($group2)) array_push($out, $row->ref ? utf8_decode($row->ref) : '');
+			array_push($out, utf8_decode($row->barcode));
 			array_push($out, $row->prodref ? utf8_decode($row->prodref) : '');
 			if (empty($group2)) array_push($out, $row->name ? utf8_decode($row->name) : '');
 			array_push($out, utf8_decode(implode("/", $categories)));
@@ -465,6 +468,7 @@ print '</td></tr></table>';
 print '<table class="liste" style="position: relative; bottom: 30px;">';
 print '<tr class="liste_titre">';
 if (empty($group)) print_liste_field_titre($langs->trans("Ref"), $_SERVER["PHP_SELF"], "ref", "", $param, "", $sortfield, $sortorder, "");
+print_liste_field_titre($langs->trans("Código de barras"), $_SERVER["PHP_SELF"], "barcode", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Label"), $_SERVER["PHP_SELF"], "prodref", "", $param, "", $sortfield, $sortorder, "");
 if (empty($group)) print_liste_field_titre($langs->trans("Customer"), $_SERVER["PHP_SELF"], "name", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Categories"), '', "", "", '', "", '', '', "");
@@ -498,6 +502,7 @@ if ($resql > 0) {
 		$productstatic->status_buy   = $row->tobuy;
 		$productstatic->price 		 = $row->price;
 		$productstatic->status_batch = $row->tobatch;
+		$productstatic->barcode = $row->barcode;
 
 		$societestatic->id    = $row->socid;
 		$societestatic->name  = $row->name;
@@ -516,6 +521,7 @@ if ($resql > 0) {
 		$total_profit_without_disc += $row->profit_without_disc;
 
 		if (empty($group)) print "<td>" . $facturestatic->getNomUrl(1) . "</td>";
+		print "<td>" . $productstatic->barcode . "</td>";
 		print "<td>" . $productstatic->getNomUrl(1) . "</td>";
 		if (empty($group)) print "<td>" . $societestatic->getNomUrl(1) . "</td>";
 		print "<td>" . $form->showCategories($row->prodid, "product", 1) . "</td>";
@@ -533,7 +539,7 @@ if ($resql > 0) {
 	print '<tr class="liste_total">';
 	if ($num < $limit) print '<td class="left">' . $langs->trans("Total") . '</td>';
 	else print '<td class="left">' . $langs->trans("Totalforthispage") . '</td>';
-	print '<td '.(empty($group)? 'colspan="6"' : '').' ></td>';
+	print '<td '.(empty($group)? 'colspan="7"' : '').' ></td>';
 	print '<td class="left">' . $total_qty . '</td>';
 	print '<td align="left">' . price($total_cost) . '</td>';
 	print '<td align="left">' . price($total_ht) . '</td>';
