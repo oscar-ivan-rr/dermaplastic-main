@@ -913,7 +913,7 @@ $reshook = $hookmanager->executeHooks('printFieldListTitle', $parameters); // No
 print $hookmanager->resPrint;
 
 print "</tr>\n";
-if(!$fk_supplier) {
+if($fk_supplier) {
 	while ($i < ($limit ? min($num, $limit) : $num))
 	{
 		$objp = $db->fetch_object($resql);
