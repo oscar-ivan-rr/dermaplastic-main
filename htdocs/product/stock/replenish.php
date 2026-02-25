@@ -837,13 +837,20 @@ $warehouse = [0 => ''];
 $sql = "SELECT rowid, ref FROM ".MAIN_DB_PREFIX."entrepot WHERE statut = 1";
 
 $res = $db->query($sql);
+$formproduct = new FormProduct($db);
 while($item = $db->fetch_object($res)){
 	$warehouse[$item->rowid] = $item->ref;
 }
 if($user->rights->stock->show_all_warehouses){
 	print '<div class="divsearchfield" style="margin-top: 8px;">';
 	print $langs->trans('Warehouse') . ': ';
-	print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
+	if($user->rights->stock->show_all_warehouses) {
+		print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'warehouseopen', 0);
+	}else {
+		print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'warehouseopen', 0, 1);
+	}
+
+	//print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
 	print '</div>';
 }else{
 	$entrepot = new Entrepot($db);
