@@ -844,12 +844,7 @@ while($item = $db->fetch_object($res)){
 if($user->rights->stock->show_all_warehouses){
 	print '<div class="divsearchfield" style="margin-top: 8px;">';
 	print $langs->trans('Warehouse') . ': ';
-	if($user->rights->stock->show_all_warehouses) {
-		print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'warehouseopen', 0);
-	}else {
-		print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'warehouseopen', 0, 1);
-	}
-
+	print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'entrepot_id', 0);
 	//print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
 	print '</div>';
 }else{
@@ -860,7 +855,7 @@ if($user->rights->stock->show_all_warehouses){
 	print $langs->trans('Warehouse') . ': ';
 	$warehouse = array();
 	$warehouse[$entrepot->id] = $entrepot->ref;
-	print $form->selectarray('entrepot_id', $warehouse, $selectedSearchWarehouse);
+	print $formproduct->selectWarehouses($user->fk_warehouse, 'fk_entrepot', 'entrepot_id', 0, 1);
 	print '</div>';
 }
 print '</td></tr>';
