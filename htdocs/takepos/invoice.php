@@ -891,7 +891,7 @@ if(count($applyDiscontLines) > 0 && count($applyDiscontLines2) > 0) {
 		$line2 = $applyDiscontLines2[$i];
 		$categoriesLine2 = getProductCategories($line2->fk_product, $invoice, $db);
 		if(in_array(9, $categoriesLine2)) {
-			$DISCOUNT = 20;
+			$DISCOUNT = 15;
 		}
 
 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
