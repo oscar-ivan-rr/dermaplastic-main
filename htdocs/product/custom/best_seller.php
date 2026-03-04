@@ -14,6 +14,7 @@ require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/core/lib/functions.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
 require_once DOL_DOCUMENT_ROOT . '/categories/class/categorie.class.php';
+require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/productlot.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 
@@ -82,7 +83,7 @@ $titlepage = "Reporte de ventas";
 // Validar si se requiere el reporte por factura o agrupado por producto
 if(empty($group)){
 	$sql = "SELECT DISTINCT s.nom as name, s.rowid as socid, s.code_client, s.email,";
-	$sql .= " f.ref, f.datef, f.paye, f.type, f.fk_statut as statut, f.rowid as facid,";
+	$sql .= " f.ref, f.datef, f.paye, f.type, f.fk_statut as statut, f.rowid as facid, f.fk_user_author,";
 	$sql .= " d.rowid, d.total_ht as total_ht, d.total_ttc as total_ttc, d.qty, d.description, d.fk_product as id_product,";
 	$sql .= " p.rowid as prodid, p.ref as prodref, p.barcode, p.tosell, p.tobuy, p.tobatch, (d.subprice * d.qty) as price, ";
 	$sql .= " (COALESCE(d.buy_price_ht, 0)* d.qty) as cost, (d.total_ht - (COALESCE(d.buy_price_ht, 0) * d.qty)) as profit, ((d.subprice * d.qty) - (COALESCE(d.buy_price_ht, 0) * d.qty)) as profit_without_disc, ";
@@ -228,6 +229,7 @@ if ($sqlexport) {
 		if (empty($group2)){
 			$titles = array(
 				$langs->trans("Ref"),
+				$langs->trans("Author"),
 				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				$langs->trans("Customer"),
@@ -244,6 +246,7 @@ if ($sqlexport) {
 			);
 		} else {
 			$titles = array(
+				$langs->trans("Author"),
 				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				utf8_decode( "Etiquetas/Categorías"),
@@ -264,13 +267,16 @@ if ($sqlexport) {
 		);
 		$form = new Form($db);
 		$cat = new Categorie($db);
+		$facturestatic = new Facture($db);
 		$total_qty = 0;
 		$total_ht = 0;
 		$total_price = 0;
 		while ($row = $db->fetch_object($result)) {
-            $categories = $cat->containing($row->prodid, 'product', 'label');
+			$facturestatic->info($row->facid);
+			$categories = $cat->containing($row->prodid, 'product', 'label');
 			$out = array();
 			if (empty($group2)) array_push($out, $row->ref ? utf8_decode($row->ref) : '');
+			array_push($out, utf8_decode($facturestatic->user_creation->firstname . ' ' . $facturestatic->user_creation->lastname));
 			array_push($out, utf8_decode($row->barcode));
 			array_push($out, $row->prodref ? utf8_decode($row->prodref) : '');
 			if (empty($group2)) array_push($out, $row->name ? utf8_decode($row->name) : '');
@@ -468,6 +474,7 @@ print '</td></tr></table>';
 print '<table class="liste" style="position: relative; bottom: 30px;">';
 print '<tr class="liste_titre">';
 if (empty($group)) print_liste_field_titre($langs->trans("Ref"), $_SERVER["PHP_SELF"], "ref", "", $param, "", $sortfield, $sortorder, "");
+print_liste_field_titre($langs->trans("Author"), $_SERVER["PHP_SELF"], "author", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Código de barras"), $_SERVER["PHP_SELF"], "barcode", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Label"), $_SERVER["PHP_SELF"], "prodref", "", $param, "", $sortfield, $sortorder, "");
 if (empty($group)) print_liste_field_titre($langs->trans("Customer"), $_SERVER["PHP_SELF"], "name", "", $param, "", $sortfield, $sortorder, "");
@@ -486,15 +493,17 @@ if ($resql > 0) {
 	$total_qty = 0;
 	$total_ht = 0;
 	$total_price = 0;
+	//$user = new User($db);
 	$facturestatic = new Facture($db);
 	$productstatic = new Product($db);
 	$societestatic = new Societe($db);
 	$productstatic_lot = new ProductLot($db);
 
 	while ($row = $db->fetch_object($resql)) {
-
+		//$user->fetch($row->fk_user_author);
 		$facturestatic->id  = $row->facid;
 		$facturestatic->ref = $row->ref;
+		$facturestatic->info($row->facid);
 
 		$productstatic->id           = $row->prodid;
 		$productstatic->ref          = $row->prodref;
@@ -521,6 +530,7 @@ if ($resql > 0) {
 		$total_profit_without_disc += $row->profit_without_disc;
 
 		if (empty($group)) print "<td>" . $facturestatic->getNomUrl(1) . "</td>";
+		print "<td>" . $facturestatic->user_creation->getNomUrl(1) . "</td>";
 		print "<td>" . $productstatic->barcode . "</td>";
 		print "<td>" . $productstatic->getNomUrl(1) . "</td>";
 		if (empty($group)) print "<td>" . $societestatic->getNomUrl(1) . "</td>";

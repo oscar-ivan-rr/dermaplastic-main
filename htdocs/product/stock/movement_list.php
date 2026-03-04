@@ -986,11 +986,11 @@ if ($resql)
     }
     if (!empty($arrayfields['p.barcode']['checked']))
     {
-	    // Product Ref
-	    print '<td class="liste_titre left">';
-	    print '<input class="flat maxwidth75" type="text" name="search_product_barcode" value="'.dol_escape_htmltag($search_product_barcode).'">';
-	    print '</td>';
     }
+    // Product barcode
+	print '<td class="liste_titre left">';
+	print '<input class="flat maxwidth75" type="text" name="search_product_barcode" value="'.dol_escape_htmltag($search_product_barcode).'">';
+	print '</td>';
     if (!empty($arrayfields['p.ref']['checked']))
     {
 	    // Product Ref
@@ -1202,8 +1202,8 @@ if ($resql)
         print_liste_field_titre($arrayfields['m.datem']['label'], $_SERVER["PHP_SELF"], 'm.datem', '', $param, '', $sortfield, $sortorder);
     }
     if (!empty($arrayfields['p.barcode']['checked'])) {
-    print_liste_field_titre($arrayfields['p.barcode']['label'], $_SERVER["PHP_SELF"], 'p.barcode', '', $param, '', $sortfield, $sortorder);
     }
+    print_liste_field_titre($arrayfields['p.barcode']['label'], $_SERVER["PHP_SELF"], 'p.barcode', '', $param, '', $sortfield, $sortorder);
     if (!empty($arrayfields['p.ref']['checked'])) {
         print_liste_field_titre($arrayfields['p.ref']['label'], $_SERVER["PHP_SELF"], 'p.ref', '', $param, '', $sortfield, $sortorder);
     }
