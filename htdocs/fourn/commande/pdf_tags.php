@@ -26,7 +26,7 @@ foreach ($tags as $tag) {
     $product->fetch($prodId);
     $lote->fetch($loteId);
 
-    $eatby = dol_print_date($lote->eatby, "%d%m%y");
+    $eatby = dol_print_date($lote->eatby, "%d/%m/%Y");
 
     $i = 0;
 
@@ -60,7 +60,7 @@ foreach ($tags as $tag) {
         //Se imprime Código de Barras en base al Ref del Componente
         if ($lote) {
             $pdf->write1DBarcode($lote->id, 'C128', $posXTag + 1, $pdf->GetY(), $pageLayout[0] - 2, $pageLayout[1] - 2.5 - $pdf->GetY(), '', array(), 'N');
-            $pdf->MultiCell($pageLayout[0], 0, $lote->id, 0, 'C', false, 2, $posXTag, $pdf->GetY(), true, 4);
+            $pdf->MultiCell($pageLayout[0], 0, $lote->batch, 0, 'C', false, 2, $posXTag, $pdf->GetY(), true, 4);
         }
         $i++;
     }
