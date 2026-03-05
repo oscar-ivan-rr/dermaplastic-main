@@ -1,5 +1,7 @@
 <?php
 ini_set('display_errors', '1');
+ini_set('memori_limit', '512M');
+ini_set('max_execution_time', 30000);
 require 'main.inc.php';
 $handle = fopen('stocks.csv','r');
 
