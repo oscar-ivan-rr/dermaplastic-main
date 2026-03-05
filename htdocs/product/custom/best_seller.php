@@ -549,7 +549,7 @@ if ($resql > 0) {
 	print '<tr class="liste_total">';
 	if ($num < $limit) print '<td class="left">' . $langs->trans("Total") . '</td>';
 	else print '<td class="left">' . $langs->trans("Totalforthispage") . '</td>';
-	print '<td '.(empty($group)? 'colspan="7"' : '').' ></td>';
+	print '<td '.(empty($group)? 'colspan="8"' : '').' ></td>';
 	print '<td class="left">' . $total_qty . '</td>';
 	print '<td align="left">' . price($total_cost) . '</td>';
 	print '<td align="left">' . price($total_ht) . '</td>';

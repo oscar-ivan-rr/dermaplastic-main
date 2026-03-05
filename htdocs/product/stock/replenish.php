@@ -1115,8 +1115,12 @@ if($fk_supplier) {
 				// }
 
 				$functions_no_cedis = "";
+				$disabledQuantity = '';
 				if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) $functions_no_cedis = "oninput='validarNum(".$i.")' onchange='limpiarInput()'";
-				print '<td class="right" style="min-width: 120px;"><input type="text" id="tobuy'.$i.'" ' . $functions_no_cedis . ' size="4" name="tobuy'.$i.'" value="'.$stocktobuy.'"></td>';
+				if(!$functions_no_cedis) {
+					$disabledQuantity = 'readonly';
+				}
+				print '<td class="right" style="min-width: 120px;"><input type="text" '. $disabledQuantity .'  id="tobuy'.$i.'" ' . $functions_no_cedis . ' size="4" name="tobuy'.$i.'" value="'.$stocktobuy.'"></td>';
 
 				
 				print "
