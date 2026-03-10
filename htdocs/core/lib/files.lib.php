@@ -1109,17 +1109,17 @@ function dol_move_uploaded_file($src_file, $dest_file, $allowoverwrite, $disable
 		$return = move_uploaded_file($src_file_osencoded, $file_name_osencoded);
 		if ($return)
 		{
-			if(substr($dest_file,-3) == 'jpg' || substr($dest_file,-4) == 'jpeg' || substr($dest_file,-3) == 'png'){
-				$pixeles = dol_getImageSize($dest_file);
-				if($pixeles['width'] < 720 && $pixeles['height'] < 720){
-					unlink($dest_file);
-					return 'Imágen de menos de 720px';
-				}
-				if($pixeles['width'] < 720 || $pixeles['height'] < 720){
-					unlink($dest_file);
-					return 'Imágen de menos de 720px';
-				}
-			}
+			// if(substr($dest_file,-3) == 'jpg' || substr($dest_file,-4) == 'jpeg' || substr($dest_file,-3) == 'png'){
+			// 	$pixeles = dol_getImageSize($dest_file);
+			// 	if($pixeles['width'] < 720 && $pixeles['height'] < 720){
+			// 		unlink($dest_file);
+			// 		return 'Imágen de menos de 720px';
+			// 	}
+			// 	if($pixeles['width'] < 720 || $pixeles['height'] < 720){
+			// 		unlink($dest_file);
+			// 		return 'Imágen de menos de 720px';
+			// 	}
+			// }
 			if (!empty($conf->global->MAIN_UMASK)) @chmod($file_name_osencoded, octdec($conf->global->MAIN_UMASK));
 			dol_syslog("Files.lib::dol_move_uploaded_file Success to move ".$src_file." to ".$file_name." - Umask=".$conf->global->MAIN_UMASK, LOG_DEBUG);
 			return 1; // Success
