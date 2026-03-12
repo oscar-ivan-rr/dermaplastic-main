@@ -81,9 +81,7 @@ abstract class Template {
      * @param   String  $base_type  Tipo de registro en propertyCelss ("base", "extra")
      */
     public function setPropertyWithCell($property, $num_cell, $base_type) {
-        
-        $this->propertyCells[$base_type][$num_cell] = $property;
-        
+        $this->propertyCells[$base_type][$num_cell] = $property;        
     }
 
     /**

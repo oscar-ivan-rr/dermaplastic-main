@@ -182,7 +182,7 @@ elseif($type == 1) {
     $sql .= ", p.finished, p.weight, p.weight_units, p.length, p.length_units, p.width, p.width_units, p.height, p.height_units, p.surface, p.surface_units, p.volume, p.volume_units";
     $sql .= ", p.customcode, p.wh1percent, p.wh2percent, p.wh1_limit, p.wh2_limit,  pe.claveprodserv, pe.umed, p.barcode, p.tosell, p.tobuy, p.fk_country, p.location_matriz, p.location_gpe, p.location_matriz2, p.location_gpe2, p.unit_entrada, p.unit_salida";
     $sql .= ", p.date_compra, p.date_venta, lcc.label AS code_country, p.rotation as rotation, p.gain as gain, p.fk_default_warehouse, e.ref AS entrepot";
-    $sql .= ", p.desc_max, p.exentoiva, p.cant_dentro_empaque, p.empaque ";
+    $sql .= ", p.desc_max, p.exentoiva, p.cant_dentro_empaque, p.empaque, p.ubication, pe.objimp ";
     $sql .= " FROM ".MAIN_DB_PREFIX."product p";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot e ON e.rowid = p.fk_default_warehouse";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_extrafields pe on pe.fk_object = p.rowid";
@@ -223,16 +223,20 @@ elseif($type == 1) {
                 array_push($menu,"Descuento maximo");
             if(in_array("12", $columns))
                 array_push($menu,"Empaque");
-
             if(in_array("13", $columns))
                 array_push($menu,"Cantidad dentro del empaque");
             if(in_array("14", $columns))
-                array_push($menu,"Exentoiva");
-            if(in_array("15", $columns))
                 array_push($menu,"Categoria");
             if(in_array("15", $columns))
                 array_push($menu,"Stock en sucursal");
-            
+            if(in_array("16", $columns))
+                array_push($menu,"Ubicacion");
+            if(in_array("17", $columns))
+                array_push($menu,"Exentoiva");
+            if(in_array("18", $columns))
+                array_push($menu,"Objeto impuesto");
+            if(in_array("19", $columns))
+                array_push($menu,"Tasa de IVA");        
         }
         fputcsv($outputBuffer,$menu, ",");
         //array_push($data,array('Clave','Estatus','Nombre','Calle','TelÃ©fono','ClasificaciÃ³n','Saldo'));
@@ -299,17 +303,13 @@ elseif($type == 1) {
             if(in_array("13",$columns) || $all_col == 'on'){
                 $register[] = $product->cant_dentro_empaque;
             }
-            if(in_array("14",$columns) || $all_col == 'on'){
-                $register[] = $product->exentoiva;
-            }
-
             $cat = new Categorie($db);
             $categories = $cat->containing($product->rowid, 'product', 'label');
-            if(in_array("15", $columns) || $all_col == 'on'){
+            if(in_array("14", $columns) || $all_col == 'on'){
                 $register[] = utf8_decode(implode("/", $categories));
             }
 
-            if(in_array("16", $columns) || $all_col == 'on'){
+            if(in_array("15", $columns) || $all_col == 'on'){
                 $sql16 = "SELECT reel FROM llx_product_stock WHERE fk_product = '".$product->rowid."' AND fk_entrepot = '".$user->fk_warehouse."'";
                 $resql16 = $db->query($sql16);
                 if($resql16->num_rows > 0){
@@ -321,7 +321,20 @@ elseif($type == 1) {
                     $register[] = 0;
                 }
             }
-        
+            
+            if(in_array("16",$columns) || $all_col == 'on'){
+                $register[] = $product->ubication;
+            }
+            
+            if(in_array("17",$columns) || $all_col == 'on'){
+                $register[] = $product->exentoiva;
+            }
+            if(in_array("18",$columns) || $all_col == 'on'){
+                $register[] = '' . $product->objimp;
+            }
+            if(in_array("19",$columns) || $all_col == 'on'){
+                $register[] = $product->tva_tx;
+            }      
             /*if(in_array("3", $columns) || $all_col == 'on')
                 $register[] = $product->description;
 

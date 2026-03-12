@@ -107,7 +107,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
     $sql_existencias_cero .= " FROM (SELECT DISTINCT p.rowid   as rowid, p.ref, p.price, p.price_ttc, p.cost_price, pe.objimp as exentoiva, cp.CategoryName as categories, p.barcode";
     $sql_existencias_cero .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON ps.fk_product = p.rowid LEFT JOIN llx_product_extrafields as pe ON p.rowid = pe.fk_object";
     $sql_existencias_cero .= " LEFT JOIN (SELECT cp.fk_product, GROUP_CONCAT(c.label SEPARATOR ', ') as CategoryName FROM llx_categorie_product cp LEFT JOIN llx_categorie c ON cp.fk_categorie = c.rowid GROUP BY cp.fk_product) as cp ON cp.fk_product = p.rowid";
-    $sql_existencias_cero .= " WHERE ps.fk_entrepot = " . $warehouse_id;
+    if ($warehouse_id && $warehouse_id > 0) {
+        $sql_existencias_cero .= " WHERE ps.fk_entrepot = " . $warehouse_id;
+    }
     if ($searchCategoryProductList && !empty($searchCategoryProductList)) {
         $sql_existencias_cero .= " AND p.rowid IN (SELECT fk_product FROM llx_categorie_product WHERE fk_categorie IN (" . implode(',', $searchCategoryProductList) . "))";
     }
@@ -122,7 +124,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
     $sql_existencias_cero .= " FROM llx_product as p";
     $sql_existencias_cero .= " LEFT JOIN llx_product_extrafields as pe ON p.rowid = pe.fk_object";
     $sql_existencias_cero .= " LEFT JOIN (SELECT cp.fk_product, GROUP_CONCAT(c.label SEPARATOR ', ') as CategoryName FROM llx_categorie_product cp LEFT JOIN llx_categorie c ON cp.fk_categorie = c.rowid GROUP BY cp.fk_product) as cp ON cp.fk_product = p.rowid";
-    $sql_existencias_cero .= " WHERE NOT EXISTS (SELECT 1 FROM llx_product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = " . $warehouse_id . ")";
+    if ($warehouse_id && $warehouse_id > 0) {
+        $sql_existencias_cero .= " WHERE NOT EXISTS (SELECT 1 FROM llx_product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = " . $warehouse_id . ")";
+    }
     if ($searchCategoryProductList && !empty($searchCategoryProductList)) {
         $sql_existencias_cero .= " AND p.rowid IN (SELECT fk_product FROM llx_categorie_product WHERE fk_categorie IN (" . implode(',', $searchCategoryProductList) . "))";
     }
@@ -149,7 +153,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
     $sql_all_products .= " LEFT JOIN " . MAIN_DB_PREFIX . "commande_fournisseur as cf ON cfd.fk_commande = cf.rowid";
     $sql_all_products .= " WHERE p.entity = 1";
     $sql_all_products .= " AND ps.reel > 0";
-    $sql_all_products .= " AND e.rowid = " . $warehouse_id;
+    if(GETPOST('fk_warehouse', 'alpha') != -1) {
+        $sql_all_products .= " AND e.rowid = " . $warehouse_id;
+    }
     if (!empty($conf->global->CEDIS_SUPPLIER)) $sql_all_products .= " AND cf.fk_soc <> " . $conf->global->CEDIS_SUPPLIER;
     // $sql_all_products .= " AND p.rowid = 286";
     // $sql_all_products .= " AND cf.fk_statut <> 0";
@@ -181,7 +187,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
         $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON cf.fk_soc = s.rowid AND s.fournisseur = 1";
         $sql .= " WHERE p.entity = 1";
         $sql .= " AND ps.reel > 0";
-        $sql .= " AND e.rowid = " . $warehouse_id;
+        if(GETPOST('fk_warehouse', 'alpha') != -1) {
+            $sql .= " AND e.rowid = " . $warehouse_id;
+        }
         $sql .= " AND p.rowid = " . $row->product_id;
         if(!empty($conf->global->CEDIS_SUPPLIER)) $sql .= " AND cf.fk_soc <> " . $conf->global->CEDIS_SUPPLIER;
         // $sql .= " AND p.rowid = 286";
@@ -241,6 +249,7 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
                 'order_id' => $row->order_id,
                 'order_ref' => $row->order_ref,
                 'warehouse_id' => $row->warehouse_id,
+                'warehouse' => $row->warehouse,
                 'stock' => $row->stock,
                 'order_qty' => $row->order_qty,
                 'order_price' =>  $total_price / $total_qty,
@@ -323,7 +332,7 @@ print '<tr>';
 print '<td>' . $langs->trans('Warehouse') . ': ';
 print '</td>';
 print '<td colspan="5">';
-print $formproduct->selectWarehouses($warehouse_id, 'fk_warehouse', '', 0);
+print $formproduct->selectWarehouses($warehouse_id, 'fk_warehouse', '', 1);
 print '</td>';
 print '</tr>';
 
@@ -344,9 +353,6 @@ print '</form>';
 print '<br>';
 print '<br>';
 print '<br>';
-
-
-
 
 
 if ($action == 'buscar' && ($supplier && $supplier > 0)) {
@@ -371,7 +377,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
 
     print '<table class="liste" style="position: relative; bottom: 30px;">';
     print '<tr class="liste_titre">';
+    print_liste_field_titre($langs->trans("Código de barras"));
     print_liste_field_titre($langs->trans("Product"));
+    print_liste_field_titre($langs->trans("Almacén"));
     print_liste_field_titre($langs->trans("Supplier"));
     print_liste_field_titre($langs->trans("Categories"));
     print_liste_field_titre($langs->trans("Cant."));
@@ -392,8 +400,12 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
             $iva_total += $row->iva;
             $total += $row->total;
 
+            // BARCODE
+            print "<td>" . $product->barcode . "</td>";
             // Product
             print "<td>" . $product->getNomUrl(1) . "</td>";
+            // WAREHOUSE
+            print "<td>" . $row->warehouse . "</td>";
             // Supplier
             print "<td>" . $soc->getNomUrl(1) .  "</td>";
             // Categories
@@ -434,7 +446,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
 
     print '<table class="liste" style="position: relative; bottom: 30px;">';
     print '<tr class="liste_titre">';
+    print_liste_field_titre($langs->trans("Código de barras"));
     print_liste_field_titre($langs->trans("Product"));
+    print_liste_field_titre($langs->trans("Almacén"));
     print_liste_field_titre($langs->trans("Supplier"));
     print_liste_field_titre($langs->trans("Categories"));
     print_liste_field_titre($langs->trans("Cant."));
@@ -451,8 +465,12 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
             $product = new Product($db);
             $product->fetch($row->rowid);
 
+            // BARCODE
+            print "<td>" . $product->barcode . "</td>";
             // Product
             print "<td>" . $product->getNomUrl(1) . "</td>";
+            // WAREHOUSE
+            print "<td>" . $row->warehouse . "</td>";
             // Supplier
             print "<td></td>";
             // Categories
@@ -491,7 +509,9 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
 
     print '<table class="liste" style="position: relative; bottom: 30px;">';
     print '<tr class="liste_titre">';
+    print_liste_field_titre($langs->trans("Código de barras"));
     print_liste_field_titre($langs->trans("Product"));
+    print_liste_field_titre($langs->trans("Almacén"));
     print_liste_field_titre($langs->trans("Supplier"));
     print_liste_field_titre($langs->trans("Categories"));
     print_liste_field_titre($langs->trans("Cant."));
@@ -508,9 +528,12 @@ if ($action == 'buscar' && ($supplier && $supplier > 0)) {
 
             $soc = new Societe($db);
             $soc->fetch($row['supplier_id']);
-
+            // BARCODE
+            print "<td>" . $product->barcode . "</td>";
             // Product
             print "<td>" . $product->getNomUrl(1) . "</td>";
+            // WAREHOUSE
+            print "<td>" . $row['warehouse'] . "</td>";
             // Supplier
             print "<td></td>";
             // Categories

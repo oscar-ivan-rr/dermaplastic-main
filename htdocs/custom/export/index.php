@@ -90,7 +90,28 @@ if($action == 'export')
         print '<label name="label" for="all_columns_product">Todas las columnas</label>';
         print '&nbsp;&nbsp;';
         print '<input type="checkbox" name="all_columns_product" id="all_columns_product">';
-        $data=array('Ref Lion','Ref Sae','Descripcion (etiqueta)', 'Stock mínimo', 'Codigo de barras', 'Precio de venta (con iva)', 'Precio de compra', 'Rotacion', 'Ganancia', 'Clave unidad (SAT)', 'Clave SAT', 'Descuento maximo', 'Empaque', 'Cantidad dentro del empaque', 'Exentoiva', 'Categoria', 'Stock en sucursal');
+        $data=array(
+            'Ref Lion',
+            'Ref Sae',
+            'Descripcion (etiqueta)',
+            'Stock mínimo',
+            'Codigo de barras',
+            'Precio de venta (con iva)',
+            'Precio de compra',
+            'Rotacion',
+            'Ganancia',
+            'Clave unidad (SAT)',
+            'Clave SAT',
+            'Descuento maximo',
+            'Empaque',
+            'Cantidad dentro del empaque',
+            'Categoria',
+            'Stock en sucursal',
+            'Ubicacion',
+            'Exentoiva',
+            'Objeto impuesto',
+            'Tasa de IVA'
+        );
 
         print $form->multiselectarray("products_col", $data, '', '', 0, '', 0, '100%');
     }

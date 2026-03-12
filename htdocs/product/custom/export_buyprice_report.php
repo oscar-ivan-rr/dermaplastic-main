@@ -38,6 +38,7 @@ $table .= '<table class="liste" style="position: relative; bottom: 30px; font-si
 $table .= '<tr>';
 $table .= '<th style="border: 2px solid black;">Producto</th>';
 $table .= '<th style="border: 2px solid black;">SKU</th>';
+$table .= '<th style="border: 2px solid black;">Almacen</th>';
 $table .= '<th style="border: 2px solid black;">Proveedor</th>';
 $table .= '<th style="border: 2px solid black;">Etiquetas/Categorías</th>';
 $table .= '<th style="border: 2px solid black;">Cant.</th>';
@@ -60,6 +61,8 @@ if ($action == 'buscar' && $case == 'supplier') {
             $table .= $row->product . '</td>';
             $table .= '<td style="border: 1px solid gray; text-align: center;widht: 50px;">';
             $table .= trim($row->barcode) . '</td>';
+            $table .= '<td style="border: 1px solid gray; text-align: center;widht: 50px;">';
+            $table .= trim($row->warehouse) . '</td>';
             $table .= '<td style="border: 1px solid gray;">';
             $table .= $row->supplier . '</td>';
             $table .= '<td style="border: 1px solid gray;">';
@@ -90,6 +93,8 @@ if ($action == 'buscar' && $case == 'supplier') {
             $table .= $row->ref . '</td>';
             $table .= '<td style="border: 1px solid gray; text-align: center;">';
             $table .= trim($row->barcode) . '</td>';
+            $table .= '<td style="border: 1px solid gray; text-align: center;widht: 50px;">';
+            $table .= trim($row->warehouse) . '</td>';
             $table .= '<td style="border: 1px solid gray;"></td>';
             $table .= '<td style="border: 1px solid gray;">';
             $table .= $row->categories . '</td>';
@@ -120,6 +125,8 @@ if ($action == 'buscar' && $case == 'supplier') {
         $table .= $product->ref . '</td>';
         $table .= '<td style="border: 1px solid gray; text-align: center;">';
         $table .= trim($product->barcode) . '</td>';
+        $table .= '<td style="border: 1px solid gray; text-align: center;">';
+        $table .= $row['warehouse'] . '</td>';
         $table .= '<td style="border: 1px solid gray;"></td>';
         $sql_cat = "SELECT c.label FROM llx_product as p";
         $sql_cat .= " LEFT JOIN llx_categorie_product as cp ON p.rowid = cp.fk_product";

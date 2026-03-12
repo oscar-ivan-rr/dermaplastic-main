@@ -9,7 +9,7 @@ require_once DOL_DOCUMENT_ROOT.'/product/stock/class/entrepot.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.product.class.php';
 // require_once DOL_DOCUMENT_ROOT.''
-
+ini_set('display_errors', '0');
 class ProductTemplate extends Template {
 
     /**
@@ -71,7 +71,9 @@ class ProductTemplate extends Template {
     public $eatby;
     public $platform;
     public $code_type;
-
+    public $ubication;
+    public $objimp;
+    public $tva_tx;
 
 
     /**
@@ -117,12 +119,15 @@ class ProductTemplate extends Template {
                 ,'volume'               => 'volumen'
                 ,'code_type'            => 'tipo de producto'
                 ,'platform'             => 'publicar en plataforma'
+                ,'tva_tx'               => 'tasa de iva'
+                ,'ubication'            => 'ubicacion'
+                ,'objimp'               => 'objeto impuesto'
                 //,'currency'		=> 'Moneda' // Por verificar
             ), // 15 campos
             'extra' => array (
                  'umed'					=> 'clave unidad (sat)'
                 ,'claveprodserv'		=> 'clave sat'
-                , 'objimp'              => ''
+                ,'objimp'               => 'objeto impuesto'
             ), // 5 campos
             'iteractions'	=> array(
                  'ref_fourn_1'			=> 'clave alterna prov 1'
@@ -170,7 +175,6 @@ class ProductTemplate extends Template {
         $res_add = 0;
         $langs->load("products");
         $langs->load("produits");
-
         //$this->ref = dol_sanitizeFileName(dol_string_nospecial(trim($this->ref)));
         $this->ref = trim($this->ref);
 
@@ -225,6 +229,13 @@ class ProductTemplate extends Template {
 				$this->errors['error'][$this->ref]['Actualización']['label'] = "No se pudo actualizar producto $this->ref";
 				$this->errors['error'][$this->ref]['Actualización']['db'] = $this->product->error;
 				$status = -1;
+            }else {
+                $objimp = $this->objimp;
+                if(strpos($this->objimp, '0') !== 0) {
+                    $objimp = '0' . $this->objimp;
+                }
+                $sql = "UPDATE llx_product_extrafields SET objimp='". $objimp . "' WHERE fk_object='". $this->product->id . "'";
+                $this->db->query($sql);
             }
             if ($this->product->checkPercentages($this->wh1percent, $this->wh2percent) != '1')
             {
@@ -287,9 +298,9 @@ class ProductTemplate extends Template {
                 $objimpsql="UPDATE llx_product_extrafields SET objimp='01' where fk_object= ".$this->product->id;
                 $this->db->query($objimpsql);
             }else {
-                $resFields = $this->product->insertExtraFields();
-                $objimpsql="UPDATE llx_product_extrafields SET objimp='NULL' where fk_object= ".$this->product->id;
-                $this->db->query($objimpsql);
+                // $resFields = $this->product->insertExtraFields();
+                // $objimpsql="UPDATE llx_product_extrafields SET objimp='NULL' where fk_object= ".$this->product->id;
+                // $this->db->query($objimpsql);
             }
             
             // If extra fields were inserted, check if exist in dictionary
@@ -875,6 +886,7 @@ class ProductTemplate extends Template {
                     ,'volume'
                     ,'code_type'
                     ,'platform'
+                    ,'ubication'  
 	  				);
 		foreach($atts as $att)
 		{
@@ -882,8 +894,7 @@ class ProductTemplate extends Template {
 			{
 				$product->{$att}	= $this->{$att};
 			}
-		}
-
+        }
 		if($this->code_type != null){
             $sql_type="SELECT rowid from ".MAIN_DB_PREFIX."c_product_type where code = '".$this->code_type."'";
             $result_type=$this->db->query($sql_type);

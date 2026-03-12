@@ -363,6 +363,7 @@ if (empty($reshook))
             $object->exentoiva              = GETPOST('exentoiva');
             $object->platform               = GETPOST('platform');
             $object->fk_type               = GETPOST('fk_type');
+            $object->ubication               = GETPOST('ubication');
 
             if(empty($object->exentoiva)){
                 $object->exentoiva = 0;
@@ -612,6 +613,7 @@ if (empty($reshook))
 
 	            $object->barcode_type = GETPOST('fk_barcode_type');
     	        $object->barcode = GETPOST('barcode');
+    	        $object->ubication = GETPOST('ubication');
     	        // Set barcode_type_xxx from barcode_type id
     	        $stdobject = new GenericObject($db);
     	        $stdobject->element = 'product';
@@ -1621,6 +1623,9 @@ else
             }
             print '</select>';
             print '</td></tr>';
+            print '<tr><td class="">'.$langs->trans("Ubicación").'</td><td colspan="3">';
+            print '<input type="text" name="ubication" maxlength="128" value="'.$object->ubication.'"> ';
+            print '</td></tr>';
 
 		}
 
@@ -1672,38 +1677,38 @@ else
 
             print '<script>
 			$(document).ready(function() {
-				// var $select = $("#exentoiva").click(function() {
-                //     // Si el producto es exento de IVA
-                //     if (this.checked) {
-                //         // Se asignan los valores correctos y se deshabilitan los campos
-                //         $("#tva_tx").val(0);
-                //         $("#select_price_base_type").val("HT");
-                //         $("#options_objimp").val("03");
+				var $select = $("#exentoiva").click(function() {
+                    // Si el producto es exento de IVA
+                    if (this.checked) {
+                        // Se asignan los valores correctos y se deshabilitan los campos
+                        $("#tva_tx").val(0);
+                        $("#select_price_base_type").val("HT");
+                        // $("#options_objimp").val("03");
 
-                //         $("#tva_tx").prop("disabled", true);
-                //         $("#select_price_base_type").prop("disabled", true);
-                //         //$("#options_objimp").prop("disabled", true);
+                        // $("#tva_tx").prop("disabled", true);
+                        // $("#select_price_base_type").prop("disabled", true);
+                        //$("#options_objimp").prop("disabled", true);
 
-                //         // Se habilitan los inputs con los valores a guardar
-                //         $("#input_tva_tx").prop("disabled", false);
-                //         $("#input_price_base_type").prop("disabled", false);
-                //         $("#input_options_objimp").prop("disabled", false)
-                //     } else {
-                //         // Si tiene IVA, se habilitan los campos de nuevo
-                //         $("#tva_tx").val(16);
-                //         $("#select_price_base_type").val("TTC");
-                //         $("#options_objimp").val("");
+                        // // Se habilitan los inputs con los valores a guardar
+                        // $("#input_tva_tx").prop("disabled", false);
+                        // $("#input_price_base_type").prop("disabled", false);
+                        // $("#input_options_objimp").prop("disabled", false)
+                    } else {
+                        // Si tiene IVA, se habilitan los campos de nuevo
+                        $("#tva_tx").val(16);
+                        $("#select_price_base_type").val("TTC");
+                        $("#options_objimp").val("");
 
-                //         $("#tva_tx").prop("disabled", false);
-                //         $("#select_price_base_type").prop("disabled", false);
-                //         $("#options_objimp").prop("disabled", false);
+                        $("#tva_tx").prop("disabled", false);
+                        $("#select_price_base_type").prop("disabled", false);
+                        $("#options_objimp").prop("disabled", false);
 
-                //         $("#input_tva_tx").prop("disabled", true);
-                //         $("#input_price_base_type").prop("disabled", true);
-                //         //$("#input_options_objimp").prop("disabled", true);
-                //     }
+                        $("#input_tva_tx").prop("disabled", true);
+                        $("#input_price_base_type").prop("disabled", true);
+                        //$("#input_options_objimp").prop("disabled", true);
+                    }
 					
-				// });
+				});
 
                 // Cálculo automático del precio de venta mínimo al cambiar descuento o precio de venta
                 var item_price = document.getElementById("price");
@@ -2223,6 +2228,11 @@ else
                 print '</select>';
                 print '</td></tr>';
 			}
+            
+            // UBICATION
+            print '<tr><td class="">'.$langs->trans("Ubicación").'</td><td>';
+            print '<input type="text" name="ubication" maxlength="128" value="'.$object->ubication.'"> ';
+            print '</td></tr>';
 
             // Note private
 			if (!empty($conf->global->MAIN_DISABLE_NOTES_TAB))
@@ -2247,26 +2257,28 @@ else
             }
 
 			$(document).ready(function() {
-				/* var $select = $("#exentoiva").click(function() {
+				var $select = $("#exentoiva").click(function() {
                     // Si el producto es exento de IVA
                     if (this.checked) {
-                        // Se asignan los valores correctos y se deshabilitan los campos
-                        $("#options_objimp").val("03");
+                        $("#tva_tx").val(0);
+                        $("#select_price_base_type").val("HT");
+                        // // Se asignan los valores correctos y se deshabilitan los campos
+                        // $("#options_objimp").val("03");
 
-                        $("#options_objimp").prop("disabled", true);
+                        // $("#options_objimp").prop("disabled", true);
 
                         // Se habilitan el input con los valores a guardar
-                        $("#input_options_objimp").prop("disabled", false);
+                        //$("#input_options_objimp").prop("disabled", false);
                     } else {
                         // Si tiene IVA, se habilita el campo de nuevo
-                        $("#options_objimp").val("");
+                        // $("#options_objimp").val("");
 
-                        $("#options_objimp").prop("disabled", false);
+                        // $("#options_objimp").prop("disabled", false);
 
-                        $("#input_options_objimp").prop("disabled", true);
+                        // $("#input_options_objimp").prop("disabled", true);
                     }
 					
-				}); */
+				});
 			});
             
 		</script>';
@@ -2848,6 +2860,10 @@ else
 				print $object->empaque;
 				print "</td></tr>";
 			}
+            
+            print '<tr><td class="valignmiddle">'.$langs->trans("Ubicación").'</td><td colspan="3">';
+            print $object->ubication;
+            print "</td></tr>";
 
             // Note private
 			if (!empty($conf->global->MAIN_DISABLE_NOTES_TAB))

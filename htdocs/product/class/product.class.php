@@ -479,6 +479,8 @@ class Product extends CommonObject
      */
     public $rotation;
 
+    public $ubication;
+
     public $fields = array(
         'rowid' => array('type'=>'integer', 'label'=>'TechnicalID', 'enabled'=>1, 'visible'=>-2, 'notnull'=>1, 'index'=>1, 'position'=>1, 'comment'=>'Id'),
         'ref'           =>array('type'=>'varchar(128)', 'label'=>'Ref', 'enabled'=>1, 'visible'=>1, 'notnull'=>1, 'showoncombobox'=>1, 'index'=>1, 'position'=>10, 'searchall'=>1, 'comment'=>'Reference of object'),
@@ -750,6 +752,7 @@ class Product extends CommonObject
                     $sql .= ", fk_default_warehouse";
                     $sql .= ", platform";
                     $sql .= ", fk_type";
+                    $sql .= ", ubication";
                     $sql .= ") VALUES (";
                     $sql .= "'".$this->db->idate($now)."'";
                     $sql .= ", ".$conf->entity;
@@ -797,6 +800,7 @@ class Product extends CommonObject
                     $sql .= ", '".($this->fk_default_warehouse)."'";
                     $sql .= ", ".(!empty($this->platform)? "'".($this->platform)."'" : 0);
                     $sql .= ", ".(!empty($this->fk_type)? "'".($this->fk_type)."'" : 0);
+                    $sql .= ", ".(!empty($this->ubication)? "'".($this->ubication)."'" : 'null');
                     $sql .= ")";
 
                     dol_syslog(get_class($this)."::Create", LOG_DEBUG);
@@ -1021,6 +1025,7 @@ class Product extends CommonObject
         $this->exentoiva =trim($this->exentoiva);
         $this->date_lim_discount =trim($this->date_lim_discount);
         $this->temp_discount =trim($this->temp_discount);
+        $this->ubication =trim($this->ubication);
 
         // set unit not defined
         if (is_numeric($this->length_units)) {
@@ -1221,6 +1226,7 @@ class Product extends CommonObject
             $sql .= ", temp_discount = ".($this->temp_discount?"'".$this->temp_discount."'":"null");
             $sql .= ", platform = ".($this->platform ? "'".$this->platform."'" : 0);
             $sql .= ", fk_type = ".($this->fk_type ? "'".$this->fk_type."'" : 0);
+            $sql .= ", ubication = ".(empty($this->ubication) ? "null" : "'".$this->db->escape($this->ubication)."'");
             // Precio de compra sucursal 
             $sql .= ", cost_price_sucursal = ".($this->cost_price_sucursal != '' ? $this->db->escape($this->cost_price_sucursal) : 0);
             // stock field is not here because it is a denormalized value from product_stock.
@@ -2300,7 +2306,7 @@ class Product extends CommonObject
         $sql .= " wh1percent, wh2percent,old_ref, location_matriz,location_gpe,unit_entrada,unit_salida,date_compra,date_venta,location_matriz2,location_gpe2,rotation,";
         $sql .= " wh1_limit, wh2_limit,";
         $sql .= " desc_max, cant_dentro_empaque, empaque, exentoiva,";
-        $sql .= " date_lim_discount, temp_discount, platform, fk_type";
+        $sql .= " date_lim_discount, temp_discount, platform, fk_type, ubication";
         $sql .= " FROM ".MAIN_DB_PREFIX."product";
         if ($id) {
             $sql .= " WHERE rowid = ".(int) $id;
@@ -2443,6 +2449,7 @@ class Product extends CommonObject
                 $this->temp_discount = $obj->temp_discount;
                 $this->platform = $obj->platform;
                 $this->fk_type = $obj->fk_type;
+                $this->ubication = $obj->ubication;
 
                 // Cost price sucursal
                 $this->cost_price_sucursal = $obj->cost_price_sucursal;
