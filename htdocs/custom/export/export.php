@@ -194,7 +194,7 @@ elseif($type == 1) {
         $data = array();
         // FIXME: p.rowid
         if($all_col == 'on')
-            $menu=array('Ref Lion','Ref Sae','Descripcion (etiqueta)', utf8_decode('Stock mínimo'), 'Codigo de barras', 'Precio de venta (con iva)', 'Precio de compra', 'Rotacion', 'Ganancia', 'Clave unidad (SAT)', 'Clave SAT', 'Descuento maximo', 'Empaque', 'Cantidad dentro del empaque', 'Exentoiva', 'Categoria', 'Stock en sucursal');
+            $menu=array('Ref Lion','Ref Sae','Descripcion (etiqueta)', utf8_decode('Stock mínimo'), 'Codigo de barras', 'Precio de venta (con iva)', 'Precio de compra', 'Rotacion', 'Ganancia', 'Clave unidad (SAT)', 'Clave SAT', 'Descuento maximo', 'Empaque', 'Cantidad dentro del empaque', 'Categoria', 'Stock en sucursal', 'Exentoiva','Objeto impuesto', 'tasa de iva', 'Ubicacion');
         else{
             $menu = array();
             if(in_array("0", $columns))
@@ -230,13 +230,13 @@ elseif($type == 1) {
             if(in_array("15", $columns))
                 array_push($menu,"Stock en sucursal");
             if(in_array("16", $columns))
-                array_push($menu,"Ubicacion");
-            if(in_array("17", $columns))
                 array_push($menu,"Exentoiva");
-            if(in_array("18", $columns))
+            if(in_array("17", $columns))
                 array_push($menu,"Objeto impuesto");
+            if(in_array("18", $columns))
+                array_push($menu,"Tasa de IVA");     
             if(in_array("19", $columns))
-                array_push($menu,"Tasa de IVA");        
+                array_push($menu,"Ubicacion");   
         }
         fputcsv($outputBuffer,$menu, ",");
         //array_push($data,array('Clave','Estatus','Nombre','Calle','TelÃ©fono','ClasificaciÃ³n','Saldo'));
@@ -323,18 +323,19 @@ elseif($type == 1) {
             }
             
             if(in_array("16",$columns) || $all_col == 'on'){
+                $register[] = $product->exentoiva;
+            }
+            if(in_array("17",$columns) || $all_col == 'on'){
+                $register[] = '' . $product->objimp;
+            }
+            if(in_array("18",$columns) || $all_col == 'on'){
+                $register[] = $product->tva_tx;
+            }
+            
+            if(in_array("19",$columns) || $all_col == 'on'){
                 $register[] = $product->ubication;
             }
             
-            if(in_array("17",$columns) || $all_col == 'on'){
-                $register[] = $product->exentoiva;
-            }
-            if(in_array("18",$columns) || $all_col == 'on'){
-                $register[] = '' . $product->objimp;
-            }
-            if(in_array("19",$columns) || $all_col == 'on'){
-                $register[] = $product->tva_tx;
-            }      
             /*if(in_array("3", $columns) || $all_col == 'on')
                 $register[] = $product->description;
 

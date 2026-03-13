@@ -106,9 +106,9 @@ if($action == 'export')
             'Empaque',
             'Cantidad dentro del empaque',
             'Categoria',
+            'Exentoiva',
             'Stock en sucursal',
             'Ubicacion',
-            'Exentoiva',
             'Objeto impuesto',
             'Tasa de IVA'
         );
