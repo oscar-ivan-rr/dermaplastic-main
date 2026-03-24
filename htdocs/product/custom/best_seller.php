@@ -9,6 +9,7 @@
  *  \ingroup    product
  *  \brief      reporte de productos en facturas de proveedor y a cliente
  */
+
 require '../../main.inc.php';
 require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/core/lib/functions.lib.php';
@@ -17,7 +18,7 @@ require_once DOL_DOCUMENT_ROOT . '/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/productlot.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
-
+ini_set('display_errors', '0');
 date_default_timezone_set("GMT");
 global $conf, $langs;
 $langs->loadLangs(array('main', 'companies', 'bills', 'product', 'stocks', 'productbatch'));
@@ -229,7 +230,6 @@ if ($sqlexport) {
 		if (empty($group2)){
 			$titles = array(
 				$langs->trans("Ref"),
-				$langs->trans("Author"),
 				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				$langs->trans("Customer"),
@@ -276,7 +276,7 @@ if ($sqlexport) {
 			$categories = $cat->containing($row->prodid, 'product', 'label');
 			$out = array();
 			if (empty($group2)) array_push($out, $row->ref ? utf8_decode($row->ref) : '');
-			array_push($out, utf8_decode($facturestatic->user_creation->firstname . ' ' . $facturestatic->user_creation->lastname));
+			if (empty($group2)) array_push($out, utf8_decode($facturestatic->user_creation->firstname . ' ' . $facturestatic->user_creation->lastname));
 			array_push($out, utf8_decode($row->barcode));
 			array_push($out, $row->prodref ? utf8_decode($row->prodref) : '');
 			if (empty($group2)) array_push($out, $row->name ? utf8_decode($row->name) : '');
@@ -319,6 +319,7 @@ if ($sqlexport) {
 /*
  * View
  */
+
 llxHeader("", $titlepage);
 
 print load_fiche_titre($titlepage, $linkback = "");
@@ -422,7 +423,6 @@ print '</div>';
 
 print_barre_liste("", $page, $_SERVER["PHP_SELF"], $param, $sortfield, $sortorder, '', $num, $nbtotalofrecords, 'products', 0, '', '', $limit);
 print '</form>';
-
 // Deshabilitar o habilitar campos dependiendo del checkbox de agrupamiento
 print '<script>
 	$(document).ready(function() {
@@ -474,7 +474,7 @@ print '</td></tr></table>';
 print '<table class="liste" style="position: relative; bottom: 30px;">';
 print '<tr class="liste_titre">';
 if (empty($group)) print_liste_field_titre($langs->trans("Ref"), $_SERVER["PHP_SELF"], "ref", "", $param, "", $sortfield, $sortorder, "");
-print_liste_field_titre($langs->trans("Author"), $_SERVER["PHP_SELF"], "author", "", $param, "", $sortfield, $sortorder, "");
+if (empty($group)) print_liste_field_titre($langs->trans("Author"), $_SERVER["PHP_SELF"], "author", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Código de barras"), $_SERVER["PHP_SELF"], "barcode", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Label"), $_SERVER["PHP_SELF"], "prodref", "", $param, "", $sortfield, $sortorder, "");
 if (empty($group)) print_liste_field_titre($langs->trans("Customer"), $_SERVER["PHP_SELF"], "name", "", $param, "", $sortfield, $sortorder, "");
@@ -489,6 +489,7 @@ print_liste_field_titre($langs->trans("Subtotal sin descuento"), $_SERVER["PHP_S
 print_liste_field_titre($langs->trans("Utilidad"), $_SERVER["PHP_SELF"], "profit", "", $param, "", $sortfield, $sortorder, "");
 print_liste_field_titre($langs->trans("Utilidad sin descuento"), $_SERVER["PHP_SELF"], "profit_without_disc", "", $param, "", $sortfield, $sortorder, "");
 print '</tr>';
+
 if ($resql > 0) {
 	$total_qty = 0;
 	$total_ht = 0;
@@ -501,9 +502,11 @@ if ($resql > 0) {
 
 	while ($row = $db->fetch_object($resql)) {
 		//$user->fetch($row->fk_user_author);
-		$facturestatic->id  = $row->facid;
-		$facturestatic->ref = $row->ref;
-		$facturestatic->info($row->facid);
+		if (empty($group)) {
+			$facturestatic->id  = $row->facid;
+			$facturestatic->ref = $row->ref;
+			$facturestatic->info($row->facid);
+		}
 
 		$productstatic->id           = $row->prodid;
 		$productstatic->ref          = $row->prodref;
@@ -530,7 +533,7 @@ if ($resql > 0) {
 		$total_profit_without_disc += $row->profit_without_disc;
 
 		if (empty($group)) print "<td>" . $facturestatic->getNomUrl(1) . "</td>";
-		print "<td>" . $facturestatic->user_creation->getNomUrl(1) . "</td>";
+		if(empty($group)) print "<td>" . $facturestatic->user_creation->getNomUrl(1) . "</td>";
 		print "<td>" . $productstatic->barcode . "</td>";
 		print "<td>" . $productstatic->getNomUrl(1) . "</td>";
 		if (empty($group)) print "<td>" . $societestatic->getNomUrl(1) . "</td>";
