@@ -1,10 +1,12 @@
 <?php
 ini_set('display_errors', '1');
 ini_set('memori_limit', '1G');
-ini_set('max_execution_time', 0);
+ini_set('max_execution_time', 30000);
 require 'main.inc.php';
-$handle = fopen('stocks/Altacia','r');
-
+$branch = $_GET['branch'];
+$path = "stocks/$branch.csv";
+echo $path;
+$handle = fopen($path,'r');
 $rows = array();
 $warahouses = array('key' => '1');
 $sql = "SELECT * FROM llx_entrepot";
@@ -18,7 +20,9 @@ foreach($warehouses as $w => $key) {
 }
 
 while ( ($data = fgetcsv($handle, 100, ',') ) !== FALSE ) {
-  $rows[] = $data;
+  if($data) {
+    $rows[] = $data;
+  }
 }
 
 $c = count($rows);
