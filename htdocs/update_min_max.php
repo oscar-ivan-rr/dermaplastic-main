@@ -3,7 +3,7 @@ ini_set('display_errors', '1');
 ini_set('memori_limit', '1G');
 ini_set('max_execution_time', 0);
 require 'main.inc.php';
-$handle = fopen('stocks.csv','r');
+$handle = fopen('stocks/Altacia','r');
 
 $rows = array();
 $warahouses = array('key' => '1');
