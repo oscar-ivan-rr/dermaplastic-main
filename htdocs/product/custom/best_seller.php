@@ -258,11 +258,6 @@ if ($sqlexport) {
 			);
 		}
 
-
-		foreach($titles as $t) {
-			echo $t . '<br/>';
-		}
-		die;
 		fputcsv(
 			$outputBuffer,
 			$titles,
