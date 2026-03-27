@@ -80,7 +80,6 @@ if (!$sortorder) $sortorder = "DESC";
 if (!$sortfield) $sortfield = "qty";
 
 $titlepage = "Reporte de ventas";
-
 // Validar si se requiere el reporte por factura o agrupado por producto
 if(empty($group)){
 	$sql = "SELECT DISTINCT s.nom as name, s.rowid as socid, s.code_client, s.email,";
@@ -225,11 +224,12 @@ if ($sqlexport) {
 	$outputBuffer = fopen("php://output", 'w');
 
 	$result = $db->query($sqlexport);
-	if ($db->num_rows($result) > 0) {
+	if ($db->num_rows($result) > 0 or 1 == 1) {
 		$data = array();
 		if (empty($group2)){
 			$titles = array(
 				$langs->trans("Ref"),
+				$langs->trans("Author"),
 				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				$langs->trans("Customer"),
@@ -246,7 +246,6 @@ if ($sqlexport) {
 			);
 		} else {
 			$titles = array(
-				$langs->trans("Author"),
 				utf8_decode("Código de barras"),
 				$langs->trans("Label"),
 				utf8_decode( "Etiquetas/Categorías"),
@@ -258,8 +257,12 @@ if ($sqlexport) {
 				$langs->trans("Utilidad sin descuento"),
 			);
 		}
-		
 
+
+		foreach($titles as $t) {
+			echo $t . '<br/>';
+		}
+		die;
 		fputcsv(
 			$outputBuffer,
 			$titles,
@@ -272,7 +275,9 @@ if ($sqlexport) {
 		$total_ht = 0;
 		$total_price = 0;
 		while ($row = $db->fetch_object($result)) {
-			$facturestatic->info($row->facid);
+			if($group2) {
+				$facturestatic->info($row->facid);
+			}
 			$categories = $cat->containing($row->prodid, 'product', 'label');
 			$out = array();
 			if (empty($group2)) array_push($out, $row->ref ? utf8_decode($row->ref) : '');
