@@ -270,7 +270,7 @@ if ($sqlexport) {
 		$total_ht = 0;
 		$total_price = 0;
 		while ($row = $db->fetch_object($result)) {
-			if($group2) {
+			if(empty($group2)) {
 				$facturestatic->info($row->facid);
 			}
 			$categories = $cat->containing($row->prodid, 'product', 'label');
