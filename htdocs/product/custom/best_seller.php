@@ -302,9 +302,9 @@ if ($sqlexport) {
 		// Totales
 		$totals = array();
 		if (empty($group2)){
-			$totals = array('TOTALES', '', '', '', '', '', '', number_format($total_qty, 2), number_format($total_cost, 2), number_format($total_ht, 2), number_format($total_price, 2), number_format($total_profit, 2), number_format($total_profit_without_disc, 2));
+			$totals = array('TOTALES', '', '', '', '', '', '', '', '', number_format($total_qty, 2), number_format($total_cost, 2), number_format($total_ht, 2), number_format($total_price, 2), number_format($total_profit, 2), number_format($total_profit_without_disc, 2));
 		} else {
-			$totals = array('TOTALES', '', number_format($total_qty, 2), number_format($total_cost, 2), number_format($total_ht, 2), number_format($total_price, 2), number_format($total_profit, 2), number_format($total_profit_without_disc, 2));
+			$totals = array('TOTALES', '', '', number_format($total_qty, 2), number_format($total_cost, 2), number_format($total_ht, 2), number_format($total_price, 2), number_format($total_profit, 2), number_format($total_profit_without_disc, 2));
 		}
 		fputcsv($outputBuffer, $totals, ",");
 
