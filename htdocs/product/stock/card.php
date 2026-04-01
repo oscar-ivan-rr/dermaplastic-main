@@ -181,8 +181,8 @@ if (empty($reshook))
 		header("Content-disposition: attachment; filename=\"Almacen de Sucursal.csv\"");
 		$outputBuffer = fopen("php://output", 'w');
 		
-		$sql = "SELECT DISTINCT p.rowid as rowid, p.barcode, p.ref, p.produit, p.tobatch, p.type, p.ppmp, p.price, p.price_ttc, p.entity, p.value, p.weight, p.length, p.width, p.height, p.volume, p.identificacion FROM (";
-		$sql .= "SELECT DISTINCT p.rowid as rowid, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
+		$sql = "SELECT DISTINCT p.rowid as rowid, p.ubication, p.barcode, p.ref, p.produit, p.tobatch, p.type, p.ppmp, p.price, p.price_ttc, p.entity, p.value, p.weight, p.length, p.width, p.height, p.volume, p.identificacion FROM (";
+		$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
 		$sql .= " ps.reel as value, p.weight, p.length, p.width, p.height, p.volume, pe.noidenticfdi as identificacion";
 		$sql .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
 		$sql .= " LEFT JOIN llx_product_extrafields as pe ON  pe.fk_object = p.rowid ";
@@ -190,7 +190,7 @@ if (empty($reshook))
 
 		if ($search_empty_stock == 1) {
 			$sql .= " UNION ";
-			$sql .= "SELECT DISTINCT p.rowid as rowid, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
+			$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
 			$sql .= "p.pmp as ppmp, p.price, p.price_ttc, p.entity, NULL as value, p.weight, p.length, p.width, p.height, p.volume, NULL as identificacion FROM " . MAIN_DB_PREFIX . "product as p ";
 			$sql .= "WHERE NOT  EXISTS ";
 			$sql .= "(SELECT 1 FROM " . MAIN_DB_PREFIX . "product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = '" . $object->id . "')";
@@ -265,7 +265,7 @@ if (empty($reshook))
 				array_push($x, $valor_venta);
 				$total_valor_venta += price2num($pricemin * $row->value, 'MT');
 
-				array_push($x,$row->identificacion);
+				array_push($x,$row->ubication);
 				array_push($x,price2num($row->weight, 'MT')." kg");
 				array_push($x,$size);
 				array_push($x,price2num($row->volume, 'MT')." cm3");
