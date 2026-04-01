@@ -273,7 +273,7 @@ elseif($type == 1) {
                 if($resql3->num_rows > 0){
                     while($claves = $db->fetch_object($resql3))
                     {
-                        $register[] = $claves->cost_price?price($claves->cost_price):'';
+                        $register[] = $claves->cost_price ? $claves->cost_price : 0;
                     }
                 }else{
                     $register[] = '';

@@ -820,86 +820,86 @@ if ($action == "updateprice")
     $invoice->fetch($placeid);
 }
 
-function sortByPrice($a, $b) {
-	$desc1 = 100-$a->remise_percent;
-	$pu1 = $a->total_ttc * 100 / $desc1;
+// function sortByPrice($a, $b) {
+// 	$desc1 = 100-$a->remise_percent;
+// 	$pu1 = $a->total_ttc * 100 / $desc1;
 
-	$desc2 = 100-$b->remise_percent;
-	$pu2 = $b->total_ttc * 100 / $desc2;
+// 	$desc2 = 100-$b->remise_percent;
+// 	$pu2 = $b->total_ttc * 100 / $desc2;
 
-	return $pu1 > $pu2;
-}
+// 	return $pu1 > $pu2;
+// }
 
-function getProductCategories($fkProduct, $invoice, $db) {
-	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
-	$c = new Categorie($db);
-	return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
-}
+// function getProductCategories($fkProduct, $invoice, $db) {
+// 	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+// 	$c = new Categorie($db);
+// 	return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
+// }
 
-function isCategoryFound($categoryId, $invoice, $db) {
-	foreach ($invoice->lines as $line) {
-		$categories = getProductCategories($line->fk_product, $invoice, $db);
-		if(in_array($categoryId, $categories)) {
-			return true;
-		}
-	}
+// function isCategoryFound($categoryId, $invoice, $db) {
+// 	foreach ($invoice->lines as $line) {
+// 		$categories = getProductCategories($line->fk_product, $invoice, $db);
+// 		if(in_array($categoryId, $categories)) {
+// 			return true;
+// 		}
+// 	}
 
-	return false;
-}
+// 	return false;
+// }
 
-function clearDiscounts($lines, $db, $invoice) {
-		$customer = new Societe($db);
-		$customer->fetch($invoice->socid);
-		foreach($lines as $line) {
-			$prod = new Product($db);
-			$prod->fetch($line->fk_product);
-			$descuento = ($prod->temp_discount != 0) ? $prod->temp_discount : (($prod->desc_max != 0) ? (($prod->desc_max >= 10) ? $customer->remise_percent : $prod->desc_max) : 0);
-			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $descuento, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
-		}
-}
+// function clearDiscounts($lines, $db, $invoice) {
+// 		$customer = new Societe($db);
+// 		$customer->fetch($invoice->socid);
+// 		foreach($lines as $line) {
+// 			$prod = new Product($db);
+// 			$prod->fetch($line->fk_product);
+// 			$descuento = ($prod->temp_discount != 0) ? $prod->temp_discount : (($prod->desc_max != 0) ? (($prod->desc_max >= 10) ? $customer->remise_percent : $prod->desc_max) : 0);
+// 			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $descuento, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+// 		}
+// }
 
-$applyDiscontLines = array();
-$applyDiscontLines2 = array();
+// $applyDiscontLines = array();
+// $applyDiscontLines2 = array();
 
-foreach ($invoice->lines as $line)
-{
-	$categories = getProductCategories($line->fk_product, $invoice, $db);
-	// solar	
-	if(in_array(23, $categories)) {
-		$applyDiscontLines[] = $line;
-		//ANTIEDAD = 9 ACNE = 8 hidratante = 18
-	}else if(in_array(18, $categories) || in_array(8, $categories) || (in_array(9, $categories))) {
-		$applyDiscontLines2[] = $line;
-	}
-}
+// foreach ($invoice->lines as $line)
+// {
+// 	$categories = getProductCategories($line->fk_product, $invoice, $db);
+// 	// solar	
+// 	if(in_array(23, $categories)) {
+// 		$applyDiscontLines[] = $line;
+// 		//ANTIEDAD = 9 ACNE = 8 hidratante = 18
+// 	}else if(in_array(18, $categories) || in_array(8, $categories) || (in_array(9, $categories))) {
+// 		$applyDiscontLines2[] = $line;
+// 	}
+// }
 
-clearDiscounts($applyDiscontLines, $db, $invoice);
-clearDiscounts($applyDiscontLines2, $db, $invoice);
-$invoice->fetch($placeid);
+// clearDiscounts($applyDiscontLines, $db, $invoice);
+// clearDiscounts($applyDiscontLines2, $db, $invoice);
+// $invoice->fetch($placeid);
 
-//APPLY CUSTOM DISCOUNT
-usort($applyDiscontLines, 'sortByPrice');
-usort($applyDiscontLines2, 'sortByPrice');
+// //APPLY CUSTOM DISCOUNT
+// usort($applyDiscontLines, 'sortByPrice');
+// usort($applyDiscontLines2, 'sortByPrice');
 
-$c = min(count($applyDiscontLines), count($applyDiscontLines2));
+// $c = min(count($applyDiscontLines), count($applyDiscontLines2));
 
-if(count($applyDiscontLines) > 0 && count($applyDiscontLines2) > 0) {
-	for ($i = 0; $i<$c; $i++)
-	{
-		$DISCOUNT = 20;
-		$line1 = $applyDiscontLines[$i];
-		$line2 = $applyDiscontLines2[$i];
-		$categoriesLine2 = getProductCategories($line2->fk_product, $invoice, $db);
-		if(in_array(9, $categoriesLine2)) {
-			$DISCOUNT = 15;
-		}
+// if(count($applyDiscontLines) > 0 && count($applyDiscontLines2) > 0) {
+// 	for ($i = 0; $i<$c; $i++)
+// 	{
+// 		$DISCOUNT = 20;
+// 		$line1 = $applyDiscontLines[$i];
+// 		$line2 = $applyDiscontLines2[$i];
+// 		$categoriesLine2 = getProductCategories($line2->fk_product, $invoice, $db);
+// 		if(in_array(9, $categoriesLine2)) {
+// 			$DISCOUNT = 15;
+// 		}
 
-		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
-		$invoice->updateline($line2->id, $line2->desc, $line2->subprice, $line2->qty, $DISCOUNT, $line2->date_start, $line2->date_end, $line2->tva_tx, $line2->localtax1_tx, $line2->localtax2_tx, 'HT', $line2->info_bits, $line2->product_type, $line2->fk_parent_line, 0, $line2->fk_fournprice, $line2->pa_ht, $line2->label, $line2->special_code, $line2->array_options, $line2->situation_percent, $line2->fk_unit);
-	}
-}
+// 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
+// 		$invoice->updateline($line2->id, $line2->desc, $line2->subprice, $line2->qty, $DISCOUNT, $line2->date_start, $line2->date_end, $line2->tva_tx, $line2->localtax1_tx, $line2->localtax2_tx, 'HT', $line2->info_bits, $line2->product_type, $line2->fk_parent_line, 0, $line2->fk_fournprice, $line2->pa_ht, $line2->label, $line2->special_code, $line2->array_options, $line2->situation_percent, $line2->fk_unit);
+// 	}
+// }
 
-$invoice->fetch($placeid);
+// $invoice->fetch($placeid);
 
 
 if ($action == "updatereduction")
