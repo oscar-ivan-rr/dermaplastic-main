@@ -53,9 +53,10 @@ $columns = 0;
 $table .= '<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <table class="tagtable liste listwithfilterbefore" >' . "\n";
 $table .= '<tr class="liste_titre">';
-// Ref.	Código de barras, Categorias, Almacén, Stock Requerido, Sucursal, Stock CEDIS, Diferencia
+// Ref.	Código de barras, Ubicacion , Categorias, Almacén, Stock Requerido, Sucursal, Stock CEDIS, Diferencia
 $table .= '<th>Referencia</th>';
 $table .= '<th>Código de barras</th>';
+$table .= '<th>Ubicación</th>';
 $table .= '<th>Categorias</th>';
 $table .= '<th>Almacén</th>';
 $table .= '<th>Stock Requerido Sucursal</th>';
@@ -83,6 +84,7 @@ while ($i < ($limit ? min($nbrows, $limit) : $nbrows)) {
     $table .= '<tr class="oddeven">';
     $table .= '<td>' . $prod->ref . '</td>';
     $table .= '<td>' . $prod->barcode . '</td>';
+    $table .= '<td>' . $prod->ubication . '</td>';
     $table .= '<td>' . $categories . '</td>';
 
     $table .= '<td>' . $entrepot->label . '</td>';

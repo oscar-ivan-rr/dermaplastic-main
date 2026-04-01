@@ -57,7 +57,7 @@ $pageprev = $page - 1;
 $pagenext = $page + 1;
 if (!$sortfield) $sortfield = "p.ref";
 if (!$sortorder) $sortorder = "ASC";
-
+$sortfield = 'p.ubication';
 $searchCategoryProductList = GETPOST('search_category_product_list', 'array');
 //Variable checkbox para filtro de existencias 0
 $search_empty_stock = GETPOST('search_empty_stock');
