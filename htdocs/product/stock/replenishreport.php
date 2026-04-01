@@ -154,7 +154,7 @@ if (!empty($conf->global->STOCK_ALLOW_ADD_LIMIT_STOCK_BY_WAREHOUSE) && $fk_entre
 
 $sql = 'SELECT p.rowid, p.ref, p.label, p.description, p.price,';
 $sql .= ' p.price_ttc, p.price_base_type,p.fk_product_type,p.barcode, ';
-$sql .= ' p.tms as datem, p.duration, p.tobuy, p.ubication';
+$sql .= ' p.tms as datem, p.duration, p.tobuy, p.ubication,';
 $sql .= ' pw.desiredstock,p.desiredstock_principal,p.desiredstock_gpe ,pw.seuil_stock_alerte,ent.rowid as fk_entrepot, ent.ref as warehouse,';
 if (!empty($conf->global->STOCK_ALLOW_ADD_LIMIT_STOCK_BY_WAREHOUSE) && $fk_entrepot > 0) {
 	$sql .= ' pse.desiredstock as desiredstockpse, pse.seuil_stock_alerte as seuil_stock_alertepse,';
