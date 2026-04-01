@@ -57,7 +57,6 @@ $pageprev = $page - 1;
 $pagenext = $page + 1;
 if (!$sortfield) $sortfield = "p.ref";
 if (!$sortorder) $sortorder = "ASC";
-$sortfield = 'p.ubication';
 $searchCategoryProductList = GETPOST('search_category_product_list', 'array');
 //Variable checkbox para filtro de existencias 0
 $search_empty_stock = GETPOST('search_empty_stock');
@@ -729,11 +728,11 @@ else
 			$totalueps = 0;
 			$totalunitprice = 0;
 
-			$sql = "SELECT DISTINCT p.rowid as rowid, p.ref, p.produit, p.tobatch, p.type, p.pmp, p.price, p.price_ttc, p.entity, p.value, p.exentoiva FROM (";
+			$sql = "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, p.produit, p.tobatch, p.type, p.pmp, p.price, p.price_ttc, p.entity, p.value, p.exentoiva FROM (";
 			if ($object->id != $conf->global->CEDIS_WAREHOUSE){
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, ";
+				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, ";
 			} else {
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, ";
+				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, ";
 			}
 			$sql .= " ps.reel as value";
 			$sql .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
@@ -741,7 +740,7 @@ else
 
 			if ($search_empty_stock == 1) {
 				$sql .= " UNION ";
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
+				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
 				if ($object->id != $conf->global->CEDIS_WAREHOUSE){
 					$sql .= "p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, NULL as value FROM " . MAIN_DB_PREFIX . "product as p ";
 				} else {
@@ -793,7 +792,7 @@ else
 				print '<table class="noborder centpercent">';
 				print "<tr class=\"liste_titre\">";
 				print_liste_field_titre("Product", "", "p.ref", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
-
+				print_liste_field_titre("Ubicación", "", "p.ubication", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
 				// Categories Filter
 				print '<td>';
 				print '<div class="divsearchfield">';
@@ -851,6 +850,7 @@ else
 					print "<td>";
 					$productstatic->id = $objp->rowid;
 					$productstatic->ref = $objp->ref;
+					$productstatic->ubication = $objp->ubication;
 					$productstatic->label = $objp->produit;
 					$productstatic->type = $objp->type;
 					$productstatic->entity = $objp->entity;
@@ -859,7 +859,7 @@ else
 					print '</td>';
 
 					// Label
-					// print '<td>'.$objp->produit.'</td>';
+					print '<td>'.$objp->ubication.'</td>';
 
 					// Categories
 					print '<td class="tdoverflowmax200">';

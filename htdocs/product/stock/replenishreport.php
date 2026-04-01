@@ -511,6 +511,7 @@ print '<tr class="liste_titre">';
 print_liste_field_titre('<input type="checkbox" onClick="toggle(this)" id="all_checks" />', $_SERVER["PHP_SELF"], '');
 print_liste_field_titre('Ref', $_SERVER["PHP_SELF"], 'p.ref', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Código de barras', $_SERVER["PHP_SELF"], 'p.barcode', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('Ubicación', $_SERVER["PHP_SELF"], 'p.ubication', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Categorias', $_SERVER["PHP_SELF"], 'p.label', $param, '', '', $sortfield, $sortorder);
 print '<th class="liste_titre">Almacén</th>';
 print '<th class="liste_titre">Stock Requerido Sucursal</th>';
@@ -634,6 +635,7 @@ while ($i < ($limit ? min($num, $limit) : $num)) {
 
 			// Barcode
 			print '<td class="minwidth100">' . $prod->barcode . '</td>';
+			print '<td class="minwidth100">' . $prod->ubication . '</td>';
 
 			// Categorías
 			print '<td class="minwidth200">';
