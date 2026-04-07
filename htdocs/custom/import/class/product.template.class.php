@@ -295,10 +295,10 @@ class ProductTemplate extends Template {
 
             if($this->exentoiva == 1){
                 $resFields = $this->product->insertExtraFields();
-                $objimpsql="UPDATE llx_product_extrafields SET objimp='01' where fk_object= ".$this->product->id;
-                $this->db->query($objimpsql);
+                // $objimpsql="UPDATE llx_product_extrafields SET objimp='01' where fk_object= ".$this->product->id;
+                // $this->db->query($objimpsql);
             }else {
-                // $resFields = $this->product->insertExtraFields();
+                $resFields = $this->product->insertExtraFields();
                 // $objimpsql="UPDATE llx_product_extrafields SET objimp='NULL' where fk_object= ".$this->product->id;
                 // $this->db->query($objimpsql);
             }
