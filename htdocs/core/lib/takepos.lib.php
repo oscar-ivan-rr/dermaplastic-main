@@ -28,7 +28,7 @@
  */
 function takepos_prepare_head()
 {
-	global $langs, $conf;
+	global $langs, $conf, $db;
 
 	$h = 0;
 	$head = array();
@@ -49,8 +49,16 @@ function takepos_prepare_head()
 	$numterminals = max(1, $conf->global->TAKEPOS_NUM_TERMINALS);
 	for ($i = 1; $i <= $numterminals; $i++)
 	{
+		$sql = "SELECT ref FROM llx_entrepot WHERE rowid=" . $conf->global->{'CASHDESK_ID_WAREHOUSE'.$i} . ' LIMIT 1';
+		$label = 'SIN SUCURSAL';
+		$result = $db->query($sql);
+		if($result) {
+			$warehouse = $db->fetch_object($result);
+			$label = $warehouse->ref;
+		}
+
 		$head[$h][0] = DOL_URL_ROOT.'/takepos/admin/terminal.php?terminal='.$i;
-		$head[$h][1] = $langs->trans("Terminal"). " ".$i;
+		$head[$h][1] = $langs->trans("Terminal"). " ".$i . "<br/>" . "<p style='font-size: 10px;'>$label</p>" ;
 		$head[$h][2] = 'terminal'.$i;
 		$h++;
 	}

@@ -354,7 +354,7 @@ if ($action == 'order' && isset($_POST['valid']))
 			}
 		}
 
-		if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
+		if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && $id){
 			$orderCreated = new CommandeFournisseur($db);
 			$orderCreated->fetch($id);
 			$res_valid = $orderCreated->valid($user);
@@ -607,16 +607,16 @@ $sql .= $hookmanager->resPrint;
 $sql .= $db->order($sortfield, $sortorder);
 
 $rc_total_pages = '';
-if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
-{
-	$result = $db->query($sql);
-	$rc_total_pages = $db->num_rows($result);
-	if (($page * $limit) > $rc_total_pages)	// if total resultset is smaller then paging size (filtering), goto and load page 0
-	{
-		$page = 0;
-		$offset = 0;
-	}
-}
+// if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
+// {
+// 	$result = $db->query($sql);
+// 	$rc_total_pages = $db->num_rows($result);
+// 	if (($page * $limit) > $rc_total_pages)	// if total resultset is smaller then paging size (filtering), goto and load page 0
+// 	{
+// 		$page = 0;
+// 		$offset = 0;
+// 	}
+// }
 $sql .= $db->plimit($limit + 1, $offset);
 $resql = $db->query($sql);
 if (empty($resql))
