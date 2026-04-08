@@ -121,7 +121,7 @@ $html .= '<tr>
             <th style="border: 1px solid #c3c3bf; font-weight:bold; background-color:#cfd0d8; text-align:center;">Cantidad</th>
          </tr>';
 
-$product_sql = "SELECT lp.rowid, lp.`ref`, lp.barcode, SUM(lc.qty) as qty, lpe.noidenticfdi as location";
+$product_sql = "SELECT lp.rowid, lp.`ref`, lp.barcode, pl.ubication, SUM(lc.qty) as qty, lpe.noidenticfdi as location";
 $product_sql .= " FROM ".MAIN_DB_PREFIX."product lp";
 $product_sql .= " JOIN ".MAIN_DB_PREFIX."commandedet lc ON lc.fk_product = lp.rowid";
 $product_sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_extrafields lpe ON lpe.fk_object = lp.rowid ";
@@ -133,7 +133,7 @@ while($product= $db->fetch_object($product_res)){
     $html .= '<tr>
                 <td style="border: 1px solid #c3c3bf;">'.$product->ref.'</td>
                 <td style="border: 1px solid #c3c3bf;">'.$product->barcode.'</td>
-                <td style="border: 1px solid #c3c3bf;">'.$product->location.'</td>
+                <td style="border: 1px solid #c3c3bf;">'.$product->ubication.'</td>
                 <td style="border: 1px solid #c3c3bf;">'.$product->qty.' pz.</td>
              </tr>';
 }
