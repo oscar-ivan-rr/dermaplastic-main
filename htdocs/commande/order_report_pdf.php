@@ -126,7 +126,7 @@ $product_sql .= " FROM ".MAIN_DB_PREFIX."product lp";
 $product_sql .= " JOIN ".MAIN_DB_PREFIX."commandedet lc ON lc.fk_product = lp.rowid";
 $product_sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_extrafields lpe ON lpe.fk_object = lp.rowid ";
 $product_sql .= " WHERE lc.fk_commande IN (".$selected_id.")";
-$product_sql .= " GROUP BY lp.rowid ORDER BY lpe.noidenticfdi ORDER BY lp.ubication ASC";
+$product_sql .= " GROUP BY lp.rowid ORDER BY lp.ubication ASC";
 $product_res = $db->query($product_sql);
 
 while($product= $db->fetch_object($product_res)){
