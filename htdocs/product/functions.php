@@ -8,6 +8,7 @@ require_once DOL_DOCUMENT_ROOT . '/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/productstockentrepot.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/class/productbatch.class.php';
 define("BACKEND_URL", getenv('BACKEND_PLATFORM_URL'));
+define("API_KEY", getenv('VALID_API_KEY_ERP'));
 /**
      *  Send notification to Api when stock is updated
      * @param  DoliDB	 $db			 Database handler
@@ -39,6 +40,21 @@ function sendPackId($id_orden)
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
     $result = curl_exec($ch);
+    curl_close($ch);
+    return 0;
+}
+
+function updateShopifyPrice($product_id) {
+    $headers = array(
+        'api-key' => API_KEY
+    );
+    $url = BACKEND_URL.'api/erp/product/'.$product_id . '/pricing-sync';
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    $result = curl_exec($ch);
+    var_dump($result);
     curl_close($ch);
     return 0;
 }

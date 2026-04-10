@@ -44,6 +44,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/canvas.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/functions.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/genericobject.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/product.lib.php';
@@ -670,6 +671,7 @@ if (empty($reshook))
                 	else setEventMessages($object->error, null, 'errors');
                     $action = 'edit';
                 }
+                updateShopifyPrice($object->id);
             }
         }
     }

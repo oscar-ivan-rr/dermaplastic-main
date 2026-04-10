@@ -2,6 +2,7 @@
 date_default_timezone_set("America/Mexico_City");
 require_once DOL_DOCUMENT_ROOT.'/custom/import/class/template.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/functions.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/product.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/stock/class/mouvementstock.class.php';
@@ -267,9 +268,10 @@ class ProductTemplate extends Template {
 
         if ($status > 0) {
             // Update prices if are different
-            if (($this->product->price_ttc != $this->price || $this->product->price_min_ttc != $this->price_min) && $status == 2 && !$sellprice_cal)
+            if (($this->product->price_ttc != $this->price || $this->product->price_min_ttc != $this->price_min) && $status == 2 && !$sellprice_cal) {
                 $this->setSellPrices(); //TODO:  Warning
-
+            }
+            
             // Buy price
 			for ($i=1;$i<4;$i++)
 			{
@@ -421,6 +423,7 @@ class ProductTemplate extends Template {
                 $rescat = $this->product->AddProductCategory($catid->rowid);
             }
         }
+        updateShopifyPrice($this->product->id);
 
         unset($entrepot);
         unset($this->product);
