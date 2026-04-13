@@ -45,16 +45,19 @@ function sendPackId($id_orden)
 }
 
 function updateShopifyPrice($product_id) {
-    $headers = array(
-        'api-key' => API_KEY
-    );
+    $headers = [
+        'api-key: ' . API_KEY
+    ];
     $url = BACKEND_URL.'api/erp/product/'.$product_id . '/pricing-sync';
     $ch = curl_init();
+    // curl_setopt($ch, CURLOPT_HEADER, true);    // we want headers
+    // curl_setopt($ch, CURLOPT_NOBODY, true);
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     $result = curl_exec($ch);
-    var_dump($result);
+    //$httpcode = curl_getinfo($result, CURLINFO_HTTP_CODE);
+    //var_dump($httpcode);
     curl_close($ch);
     return 0;
 }

@@ -423,7 +423,7 @@ class ProductTemplate extends Template {
                 $rescat = $this->product->AddProductCategory($catid->rowid);
             }
         }
-        //ShopifyPrice($this->product->id);
+        ShopifyPrice($this->product->id);
 
         unset($entrepot);
         unset($this->product);
