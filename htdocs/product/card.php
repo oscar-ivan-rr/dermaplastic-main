@@ -671,7 +671,7 @@ if (empty($reshook))
                 	else setEventMessages($object->error, null, 'errors');
                     $action = 'edit';
                 }
-                updateShopifyPrice($object->id);
+                //updateShopifyPrice($object->id);
             }
         }
     }
