@@ -885,9 +885,9 @@ clearDiscounts($applyDiscontLines, $db, $invoice);
 //APPLY CUSTOM DISCOUNT
 usort($applyDiscontLines, 'sortByPrice');
 // usort($applyDiscontLines2, 'sortByPrice');
-foreach($applyDiscontLines as $line) {
-	echo $line->total_ttc . '<br/>';
-}
+// foreach($applyDiscontLines as $line) {
+// 	echo $line->total_ttc . '<br/>';
+// }
 // $c = min(count($applyDiscontLines), count($applyDiscontLines2));
 $chunks = array_chunk($applyDiscontLines, 4);
 foreach($chunks as $chunk) {
