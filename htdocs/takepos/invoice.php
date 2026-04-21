@@ -827,7 +827,7 @@ function sortByPrice($a, $b) {
 	$desc2 = 100-$b->remise_percent;
 	$pu2 = $b->total_ttc * 100 / $desc2;
 
-	return $pu1 > $pu2;
+	return $pu1 <=> $pu2;
 }
 
 function getProductCategories($fkProduct, $invoice, $db) {
@@ -883,7 +883,7 @@ clearDiscounts($applyDiscontLines, $db, $invoice);
 // clearDiscounts($applyDiscontLines2, $db, $invoice);
 
 //APPLY CUSTOM DISCOUNT
-// usort($applyDiscontLines, 'sortByPrice');
+usort($applyDiscontLines, 'sortByPrice');
 // usort($applyDiscontLines2, 'sortByPrice');
 
 // $c = min(count($applyDiscontLines), count($applyDiscontLines2));
