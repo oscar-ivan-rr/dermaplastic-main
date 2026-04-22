@@ -827,7 +827,7 @@ function sortByPrice($a, $b) {
 	$desc2 = 100-$b->remise_percent;
 	$pu2 = $b->total_ttc * 100 / $desc2;
 
-	return $pu1 < $pu2;
+	return $pu1 > $pu2;
 }
 
 function getProductCategories($fkProduct, $invoice, $db) {
@@ -888,21 +888,31 @@ usort($applyDiscontLines, 'sortByPrice');
 // foreach($applyDiscontLines as $line) {
 // 	echo $line->total_ttc . '<br/>';
 // }
-// $c = min(count($applyDiscontLines), count($applyDiscontLines2));
-$chunks = array_chunk($applyDiscontLines, 4);
-foreach($chunks as $chunk) {
-	$chunkSize = count($chunk);
-	if($chunkSize < 3) continue;
-	$DISCOUNT = 20;
-	if($chunkSize == 4) {
+$totalLines = count($applyDiscontLines);
+$DISCOUNT = 20;
+if($totalLines >= 3) {
+	if($totalLines > 3) {
 		$DISCOUNT = 25;
 	}
-	for ($i = 0; $i<$chunkSize; $i++)
-	{
-		$line1 = $chunk[$i];
+	foreach ($applyDiscontLines as $line1) {
 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
 	}
-}
+} 
+// $c = min(count($applyDiscontLines), count($applyDiscontLines2));
+// $chunks = array_chunk($applyDiscontLines, 4);
+// foreach($chunks as $chunk) {
+// 	$chunkSize = count($chunk);
+// 	if($chunkSize < 3) continue;
+// 	$DISCOUNT = 20;
+// 	if($chunkSize == 4) {
+// 		$DISCOUNT = 25;
+// 	}
+// 	for ($i = 0; $i<$chunkSize; $i++)
+// 	{
+// 		$line1 = $chunk[$i];
+// 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
+// 	}
+// }
 $invoice->fetch($placeid);
 // if(count($applyDiscontLines) > 0 && count($applyDiscontLines2) > 0) {
 // 	for ($i = 0; $i<$c; $i++)
