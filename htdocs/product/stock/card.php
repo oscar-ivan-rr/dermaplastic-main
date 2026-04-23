@@ -232,9 +232,9 @@ if (empty($reshook))
 				array_push($x,$form->showCategories($row->rowid, 'product', 1)?utf8_decode(str_replace("  ", ", ", str_replace("&gt;", ">", strip_tags($form->showCategories($row->rowid, 'product', 1))))):'');
 				
 				array_push($x,$row->value?$row->value:'');
-				array_push($x,$row->stock_min?$row->stock_min:'');
-				array_push($x,$row->stock_max?$row->stock_max:'');
-				array_push($x,$row->reorden?$row->reorden:'');
+				array_push($x,$row->stock_min?$row->stock_min:'0');
+				array_push($x,$row->stock_max?$row->stock_max:'0');
+				array_push($x,$row->reorden?$row->reorden:'0');
 
 				$total_units += $row->value;
 
