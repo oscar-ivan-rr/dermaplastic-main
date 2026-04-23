@@ -879,7 +879,7 @@ foreach ($invoice->lines as $line)
 	// }
 }
 
-clearDiscounts($applyDiscontLines, $db, $invoice);
+//clearDiscounts($applyDiscontLines, $db, $invoice);
 // clearDiscounts($applyDiscontLines2, $db, $invoice);
 
 //APPLY CUSTOM DISCOUNT
@@ -895,9 +895,9 @@ if($totalLines >= 3) {
 		$DISCOUNT = 25;
 	}
 	// ENABLE MAY 1 2026
-	foreach ($applyDiscontLines as $line1) {
-		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
-	}
+	// foreach ($applyDiscontLines as $line1) {
+	// 	$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
+	// }
 } 
 // $c = min(count($applyDiscontLines), count($applyDiscontLines2));
 // $chunks = array_chunk($applyDiscontLines, 4);
