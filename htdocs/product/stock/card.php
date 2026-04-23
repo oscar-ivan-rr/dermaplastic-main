@@ -212,7 +212,7 @@ if (empty($reshook))
 		$result = $db->query($sql);
 		if($db->num_rows($result)>0){
 			$data = array();
-			fputcsv($outputBuffer,array("Codigo de barras", "Producto","Categorias","Unidades","P.U. UEPS","Importe UEPS","Precio de venta unitario","Valor de venta", utf8_decode("Ubicación"), "Peso", "Medidas (longitud, largo y alto)", "Volumen"),",");
+			fputcsv($outputBuffer,array("Codigo de barras", "Producto","Categorias","Unidades", "Minimo", "Maximo", "Reorden", "P.U. UEPS","Importe UEPS","Precio de venta unitario","Valor de venta", utf8_decode("Ubicación"), "Peso", "Medidas (longitud, largo y alto)", "Volumen"),",");
 
 			// Initialize total variables
 			$total_units = 0;
@@ -231,6 +231,10 @@ if (empty($reshook))
 				array_push($x,$form->showCategories($row->rowid, 'product', 1)?utf8_decode(str_replace("  ", ", ", str_replace("&gt;", ">", strip_tags($form->showCategories($row->rowid, 'product', 1))))):'');
 				
 				array_push($x,$row->value?$row->value:'');
+				array_push($x,$row->stock_min?$row->stock_min:'');
+				array_push($x,$row->stock_max?$row->stock_max:'');
+				array_push($x,$row->reorden?$row->reorden:'');
+
 				$total_units += $row->value;
 
 				// P.U UEPS
@@ -728,14 +732,16 @@ else
 			$totalueps = 0;
 			$totalunitprice = 0;
 
-			$sql = "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, p.produit, p.tobatch, p.type, p.pmp, p.price, p.price_ttc, p.entity, p.value, p.exentoiva FROM (";
+			$sql = "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication,  p.stock_min, p.reorden, p.stock_max, p.produit, p.tobatch, p.type, p.pmp, p.price, p.price_ttc, p.entity, p.value, p.exentoiva FROM (";
 			if ($object->id != $conf->global->CEDIS_WAREHOUSE){
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, ";
+				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, ";
 			} else {
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, ";
+				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, ";
 			}
 			$sql .= " ps.reel as value";
 			$sql .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
+			$sql .= " LEFT JOIN llx_product_warehouse_properties as pw ON pw.fk_product = p.rowid AND ps.fk_entrepot=pw.fk_entrepot";
+			// agregar join para stocks min y max
 			$sql .= " WHERE ps.fk_entrepot = " . $object->id;
 
 			if ($search_empty_stock == 1) {
@@ -806,6 +812,9 @@ else
 				// Label
 				// print_liste_field_titre("Label", "", "p.label", "&amp;id=".$id, "", "", $sortfield, $sortorder);
 				print_liste_field_titre("Units", "", "p.value", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
+				print_liste_field_titre("Minimo", "", "p.stock_min", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
+				print_liste_field_titre("Maximo", "", "p.stock_max", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
+				print_liste_field_titre("Reorden", "", "p.reorden", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
 				print_liste_field_titre("PUUEPS", "", "p.cost_price", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
 
 				//            print_liste_field_titre("AverageUnitPricePMPShort", "", "p.pmp", "&amp;id=".$id, "", '', $sortfield, $sortorder, 'right ');
@@ -871,6 +880,11 @@ else
 					$valtoshow = price(price2num($objp->value, 'MS'), 0, '', 0, 0); // TODO replace with a qty() function
 					print empty($valtoshow) ? '0' : $valtoshow;
 					print '</td>';
+
+					print '<td class="center">'.$row->stock_min?$row->stock_min: '0'.'</td>';
+					print '<td class="center">'.$row->stock_max?$row->stock_max: '0'.'</td>';
+					print '<td class="center">'.$row->reorden?$row->reorden: '0'.'</td>';
+
 					$totalunit += $objp->value;
 
 					// P.U UEPS
