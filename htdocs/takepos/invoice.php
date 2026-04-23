@@ -879,7 +879,7 @@ foreach ($invoice->lines as $line)
 	// }
 }
 
-clearDiscounts($applyDiscontLines, $db, $invoice);
+//clearDiscounts($applyDiscontLines, $db, $invoice);
 // clearDiscounts($applyDiscontLines2, $db, $invoice);
 
 //APPLY CUSTOM DISCOUNT
