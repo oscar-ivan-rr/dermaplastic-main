@@ -180,10 +180,11 @@ if (empty($reshook))
 		header("Content-disposition: attachment; filename=\"Almacen de Sucursal.csv\"");
 		$outputBuffer = fopen("php://output", 'w');
 		
-		$sql = "SELECT DISTINCT p.rowid as rowid, p.ubication, p.barcode, p.ref, p.produit, p.tobatch, p.type, p.ppmp, p.price, p.price_ttc, p.entity, p.value, p.weight, p.length, p.width, p.height, p.volume, p.identificacion FROM (";
-		$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
+		$sql = "SELECT DISTINCT p.rowid as rowid, p.ubication, p.stock_min, p.reorden, p.stock_max, p.barcode, p.ref, p.produit, p.tobatch, p.type, p.ppmp, p.price, p.price_ttc, p.entity, p.value, p.weight, p.length, p.width, p.height, p.volume, p.identificacion FROM (";
+		$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
 		$sql .= " ps.reel as value, p.weight, p.length, p.width, p.height, p.volume, pe.noidenticfdi as identificacion";
 		$sql .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
+		$sql .= " LEFT JOIN llx_product_warehouse_properties as pw ON pw.fk_product = p.rowid AND ps.fk_entrepot=pw.fk_entrepot";
 		$sql .= " LEFT JOIN llx_product_extrafields as pe ON  pe.fk_object = p.rowid ";
 		$sql .= " WHERE ps.fk_entrepot = " . $object->id;
 
@@ -881,9 +882,13 @@ else
 					print empty($valtoshow) ? '0' : $valtoshow;
 					print '</td>';
 
-					print '<td class="center">'.$row->stock_min?$row->stock_min: '0'.'</td>';
-					print '<td class="center">'.$row->stock_max?$row->stock_max: '0'.'</td>';
-					print '<td class="center">'.$row->reorden?$row->reorden: '0'.'</td>';
+					$min = $objp->stock_min ? $objp->stock_min : 0;
+					$max = $objp->stock_max ? $objp->stock_max : 0;
+					$reorden = $objp->reorden ? $objp->reorden : 0;
+
+					print '<td class="center">'.$min.'</td>';
+					print '<td class="center">'.$max.'</td>';
+					print '<td class="center">'.$reorden.'</td>';
 
 					$totalunit += $objp->value;
 
