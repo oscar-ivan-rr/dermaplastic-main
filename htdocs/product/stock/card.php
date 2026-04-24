@@ -190,8 +190,9 @@ if (empty($reshook))
 
 		if ($search_empty_stock == 1) {
 			$sql .= " UNION ";
-			$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
+			$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
 			$sql .= "p.pmp as ppmp, p.price, p.price_ttc, p.entity, NULL as value, p.weight, p.length, p.width, p.height, p.volume, NULL as identificacion FROM " . MAIN_DB_PREFIX . "product as p ";
+			$sql .= " LEFT JOIN llx_product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot='" . $object->id . "' ";
 			$sql .= "WHERE NOT  EXISTS ";
 			$sql .= "(SELECT 1 FROM " . MAIN_DB_PREFIX . "product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = '" . $object->id . "')";
 		}
@@ -747,12 +748,13 @@ else
 
 			if ($search_empty_stock == 1) {
 				$sql .= " UNION ";
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
+				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.label as produit, p.tobatch, p.fk_product_type as type, ";
 				if ($object->id != $conf->global->CEDIS_WAREHOUSE){
 					$sql .= "p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, NULL as value FROM " . MAIN_DB_PREFIX . "product as p ";
 				} else {
 					$sql .= "p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, NULL as value FROM " . MAIN_DB_PREFIX . "product as p ";
 				}
+				$sql .= " LEFT JOIN llx_product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot='" . $object->id . "' ";
 				$sql .= "WHERE NOT  EXISTS ";
 				$sql .= "(SELECT 1 FROM " . MAIN_DB_PREFIX . "product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = '" . $object->id . "')";
 			}
