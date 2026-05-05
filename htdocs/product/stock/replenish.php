@@ -353,8 +353,6 @@ if ($action == 'order' && isset($_POST['valid']))
 				$i++;
 			}
 		}
-		echo 'AQUI';
-		die;
 
 		if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && $id){
 			$orderCreated = new CommandeFournisseur($db);
