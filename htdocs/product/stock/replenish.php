@@ -296,7 +296,7 @@ if ($action == 'order' && isset($_POST['valid']))
 			$sql .= " WHERE fk_soc = ".$suppliersid[$i];
 			$sql .= " AND source = 42 AND fk_statut = 0";
 			$sql .= " AND entity IN (".getEntity('commande_fournisseur').")";
-			$sql .= " ORDER BY date_creation DESC";
+			$sql .= " ORDER BY date_creation DESC LIMIT 1";
 			$resql = $db->query($sql);
 			if ($resql && $db->num_rows($resql) > 0) {
 				$obj = $db->fetch_object($resql);
@@ -353,6 +353,8 @@ if ($action == 'order' && isset($_POST['valid']))
 				$i++;
 			}
 		}
+		echo 'AQUI';
+		die;
 
 		if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && $id){
 			$orderCreated = new CommandeFournisseur($db);
@@ -628,7 +630,7 @@ $helpurl .= 'ES:M&oacute;dulo_Stocks';
 llxHeader('', $title, $helpurl, '');
 
 $head = array();
-$head[0][0] = DOL_URL_ROOT.'/product/stock/replenishv2.php';
+$head[0][0] = DOL_URL_ROOT.'/product/stock/replenish.php';
 $head[0][1] = $title;
 $head[0][2] = 'replenish';
 $head[1][0] = DOL_URL_ROOT.'/product/stock/replenishreport.php';
