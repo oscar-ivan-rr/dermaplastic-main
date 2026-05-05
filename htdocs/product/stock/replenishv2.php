@@ -84,6 +84,16 @@ $offset = $limit * $page;
 $pageprev = $page - 1;
 $pagenext = $page + 1;
 
+// Define virtualdiffersfromphysical
+$virtualdiffersfromphysical = 0;
+if (!empty($conf->global->STOCK_CALCULATE_ON_SHIPMENT)
+|| !empty($conf->global->STOCK_CALCULATE_ON_SUPPLIER_DISPATCH_ORDER)
+|| !empty($conf->global->STOCK_CALCULATE_ON_SHIPMENT_CLOSE)
+|| !empty($conf->global->STOCK_CALCULATE_ON_RECEPTION)
+|| !empty($conf->global->STOCK_CALCULATE_ON_RECEPTION_CLOSE))
+{
+	$virtualdiffersfromphysical = 1; // According to increase/decrease stock options, virtual and physical stock may differs.
+}
 
 $usevirtualstock = !empty($conf->global->STOCK_USE_VIRTUAL_STOCK);
 if ($mode == 'physical') $usevirtualstock = 0;
@@ -109,6 +119,14 @@ if (GETPOST('button_removefilter_x', 'alpha') || GETPOST('button_removefilter.x'
 }
 if ($draftorder == 'on') $draftchecked = "checked";
 if ($alreadyordered == 'on') $orderedchecked = "checked";
+
+$sql1="SELECT rowid from ".MAIN_DB_PREFIX."societe where nom = 'Proveedor prueba reaprovisionamiento' AND name_alias = '(Test)'";
+$result1=$db->query($sql1);
+$proveedortest='';
+if($db->num_rows($result1)>0){
+	$data=$db->fetch_object($result1);
+	$proveedortest=$data->rowid;
+}
 
 // Create orders
 if ($action == 'order' && isset($_POST['valid']))
@@ -383,22 +401,9 @@ if ($action == 'order' && isset($_POST['valid']))
 $form = new Form($db);
 $formproduct = new FormProduct($db);
 $prod = new Product($db);
+
 $title = $langs->trans('Status');
-// $title = $langs->trans('Status');
-// $cedisId = $conf->global->CEDIS_WAREHOUSE;
-// $sql = "SELECT P.rowid, P.ref, EN.ref AS warehouse, ST.reel AS stock_physique, PW.desiredstock, PW.seuil_stock_alerte, PW.stock_max,
-// COALESCE((SELECT reel FROM dermaplastic_production.llx_product_stock WHERE fk_entrepot=$cedisId AND fk_product=P.rowid LIMIT 1), 0) AS stock_cedis
-// FROM dermaplastic_production.llx_product_stock AS ST
-// INNER JOIN dermaplastic_production.llx_entrepot AS EN ON EN.rowid=ST.fk_entrepot
-// INNER JOIN dermaplastic_production.llx_product AS P ON P.rowid=ST.fk_product
-// LEFT JOIN dermaplastic_production.llx_product_warehouse_properties AS PW ON PW.fk_product=P.rowid AND PW.fk_entrepot=EN.rowid
-// WHERE EN.rowid = $entrepot_id AND (IFNULL(PW.stock_max, 0) - IFNULL(ST.reel, 0)) > 0 AND stock_cedis > 0";
-// $sql .= $db->plimit($limit + 1, $offset);
-// $resql = $db->query($sql);
-// $num = $db->num_rows($resql);
-// $i = 0;
-// $helpurl = 'EN:Module_Stocks_En|FR:Module_Stock|';
-// $helpurl .= 'ES:M&oacute;dulo_Stocks';
+
 if (!empty($conf->global->STOCK_ALLOW_ADD_LIMIT_STOCK_BY_WAREHOUSE) && $fk_entrepot > 0) {
 	$sqldesiredtock = $db->ifsql("pse.desiredstock IS NULL", "p.desiredstock", "pse.desiredstock");
 	$sqlalertstock = $db->ifsql("pse.seuil_stock_alerte IS NULL", "p.seuil_stock_alerte", "pse.seuil_stock_alerte");
@@ -599,12 +604,27 @@ $parameters = array();
 $reshook = $hookmanager->executeHooks('printFieldListWhere', $parameters); // Note that $action and $object may have been modified by hook
 $sql .= $hookmanager->resPrint;
 
+$rc_total_pages = '';
+// if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
+// {
+// 	$result = $db->query($sql);
+// 	$rc_total_pages = $db->num_rows($result);
+// 	if (($page * $limit) > $rc_total_pages)	// if total resultset is smaller then paging size (filtering), goto and load page 0
+// 	{
+// 		$page = 0;
+// 		$offset = 0;
+// 	}
+// }
 $sql .= $db->order($sortfield, $sortorder);
 $sql .= $db->plimit($limit + 1, $offset);
 $resql = $db->query($sql);
 $num = $db->num_rows($resql);
+$rc_total_pages = $num;
 $i = 0;
-// echo $sql;
+
+$helpurl = 'EN:Module_Stocks_En|FR:Module_Stock|';
+$helpurl .= 'ES:M&oacute;dulo_Stocks';
+
 llxHeader('', $title, $helpurl, '');
 
 $head = array();
@@ -634,7 +654,18 @@ print '</tr></table>';
 dol_fiche_head($head, 'replenish', '', -1, '');
 
 print $langs->trans("ReplenishmentStatusDesc").'<br>'."\n";
-
+// if ($usevirtualstock == 1)
+// {
+// 	print $langs->trans("CurentSelectionMode").': ';
+// 	print $langs->trans("CurentlyUsingVirtualStock").' - ';
+// 	print '<a href="'.$_SERVER["PHP_SELF"].'?mode=physical&fk_supplier='.$fk_supplier.'&fk_entrepot='.$fk_entrepot.'">'.$langs->trans("UsePhysicalStock").'</a><br>';
+// }
+// if ($usevirtualstock == 0)
+// {
+// 	print $langs->trans("CurentSelectionMode").': ';
+// 	print $langs->trans("CurentlyUsingPhysicalStock").' - ';
+// 	print '<a href="'.$_SERVER["PHP_SELF"].'?mode=virtual&fk_supplier='.$fk_supplier.'&fk_entrepot='.$fk_entrepot.'">'.$langs->trans("UseVirtualStock").'</a><br>';
+// }
 print '<br>'."\n";
 
 print '<form name="formFilterWarehouse" method="GET" action="">';
@@ -880,7 +911,7 @@ if($fk_supplier) {
 	$fourn = new Fournisseur($db);
 	$fourn->fetch($fk_supplier);		
 	while ($i < ($limit ? min($num, $limit) : $num))
-    {
+  {
     print "<tr>\n";
 		$objp = $db->fetch_object($resql);
     
@@ -890,6 +921,7 @@ if($fk_supplier) {
     print '</td>';
     
     //REF
+		print '<td hidden><input hidden name="id'.$i.'" value="'.$objp->rowid.'"></td>';
     print "<td><a href='/product/card.php?id=$objp->rowid'>" . $objp->ref . "</a></td>";
     
     // Categorías
@@ -907,6 +939,11 @@ if($fk_supplier) {
 		print '<input type="hidden" id="cedis_stock'.$i.'" name="cedis_stock'.$i.'" value="'.$objp->stock_cedis.'">';
 		print $objp->stock_cedis;
 		print '</td>';
+		
+		// Stock Sucursales
+		if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
+			print '<td class="minwidth100">' . $objp->all_stock . '</td>';
+		}
 		
 		// Stock de Reórden
 		print '<td class="minwidth100">' . $objp->seuil_stock_alerte . '</td>';
@@ -928,9 +965,18 @@ if($fk_supplier) {
 
 		// Stock máximo
 		print '<td class="right minwidth100">'. $objp->stock_max .'</td>';
-		
-		$stocktobuy = $objp->stock_max - $stock;
-		
+
+		$stocktobuy = $objp->stock_max - $objp->stock_physique;
+		// if($mode == 'virtual') {
+		// 	if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
+		// 		if(($stocktobuy <= $objp->stock_cedis) && ($stocktobuy >= 0)) $stocktobuy = $objp->stock_max - $stock;
+		// 		else if($objp->stock_max <= 0) $stocktobuy = 0;
+		// 		else $stocktobuy = $objp->stock_cedis;
+		// 	}else{
+		// 		$stocktobuy = $objp->stock_max - ($stock + $objp->all_stock);
+		// 		if($stocktobuy < 0) $stocktobuy = 0;
+		// 	}
+		// }
 		$functions_no_cedis = "";
 		$disabledQuantity = '';
 		if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) $functions_no_cedis = "oninput='validarNum(".$i.")' onchange='limpiarInput()'";
@@ -1015,18 +1061,19 @@ print '
 
 llxFooter();
 
-$db->close();
 
 function getCategories($productId, $db) {
-  $sql = "SELECT 
+	$sql = "SELECT 
   c.label,
   c.rowid 
   FROM llx_categorie_product as ct, llx_categorie as c WHERE ct.fk_categorie = c.rowid AND ct.fk_product = $productId AND c.type = 0 AND c.entity IN (1)";
 
-  $result = $db->query($sql);
-  $toprint = array();
-  while($row = $db->fetch_object($result)) {
-    $toprint[] = '<li class="select2-search-choice-dolibarr noborderoncategories" style="background: #aaa; color: #FFF; padding: 3px; font-size: 12px;">' . $row->label . '</li>';
+$result = $db->query($sql);
+$toprint = array();
+while($row = $db->fetch_object($result)) {
+	$toprint[] = '<li class="select2-search-choice-dolibarr noborderoncategories" style="background: #aaa; color: #FFF; padding: 3px; font-size: 12px;">' . $row->label . '</li>';
   }
   return '<div class="select2-container-multi-dolibarr" style="width: 90%;"><ul class="select2-choices-dolibarr">'.implode(' ', $toprint).'</ul></div>';
 }
+
+$db->close();
