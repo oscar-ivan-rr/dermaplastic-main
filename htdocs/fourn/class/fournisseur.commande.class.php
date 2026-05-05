@@ -341,8 +341,8 @@ class CommandeFournisseur extends CommonOrder
         $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_input_method as cm ON cm.rowid = c.fk_input_method";
         $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'c_incoterms as i ON c.fk_incoterms = i.rowid';
         $sql .= " WHERE c.entity = ".$conf->entity;
-        if ($ref) $sql .= " AND c.ref='".$this->db->escape($ref)."' LIMIT 1";
-        else $sql .= " AND c.rowid=".$id . ' LIMIT 1';
+        if ($ref) $sql .= " AND c.ref='".$this->db->escape($ref)."'";
+        else $sql .= " AND c.rowid=".$id;
 
         dol_syslog(get_class($this)."::fetch", LOG_DEBUG);
         $resql = $this->db->query($sql);
