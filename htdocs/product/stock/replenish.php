@@ -373,9 +373,6 @@ if ($action == 'order' && isset($_POST['valid']))
 			}
 		}
 		
-		echo 'ID:' . $id;
-		die;
-
 		if ($errorQty) setEventMessages($langs->trans('ErrorOrdersNotCreatedQtyTooLow'), null, 'warnings');
 		if ($errorprovedor)setEventMessages($langs->trans('Seleccione un proveedor'), null, 'warnings');
 
