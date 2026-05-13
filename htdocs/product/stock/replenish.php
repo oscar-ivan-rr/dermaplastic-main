@@ -296,7 +296,7 @@ if ($action == 'order' && isset($_POST['valid']))
 			$sql .= " WHERE fk_soc = ".$suppliersid[$i];
 			$sql .= " AND source = 42 AND fk_statut = 0";
 			$sql .= " AND entity IN (".getEntity('commande_fournisseur').")";
-			$sql .= " ORDER BY date_creation DESC LIMIT 1";
+			$sql .= " ORDER BY date_creation DESC";
 			$resql = $db->query($sql);
 			if ($resql && $db->num_rows($resql) > 0) {
 				$obj = $db->fetch_object($resql);
@@ -344,7 +344,6 @@ if ($action == 'order' && isset($_POST['valid']))
 				$order->mode_reglement_id = $order->thirdparty->mode_reglement_supplier_id;
 				$order->fk_entrepot = $user->fk_warehouse;
 				$id = $order->create($user);
-
 				if ($id < 0) {
 					$fail++;
 					$msg = $langs->trans('OrderFail')."&nbsp;:&nbsp;";
@@ -354,8 +353,7 @@ if ($action == 'order' && isset($_POST['valid']))
 				$i++;
 			}
 		}
-		
-		
+
 		if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && $id){
 			$orderCreated = new CommandeFournisseur($db);
 			$orderCreated->fetch($id);
@@ -372,7 +370,7 @@ if ($action == 'order' && isset($_POST['valid']))
 				setEventMessages($msg, null, 'errors');
 			}
 		}
-		
+
 		if ($errorQty) setEventMessages($langs->trans('ErrorOrdersNotCreatedQtyTooLow'), null, 'warnings');
 		if ($errorprovedor)setEventMessages($langs->trans('Seleccione un proveedor'), null, 'warnings');
 
@@ -606,6 +604,8 @@ $parameters = array();
 $reshook = $hookmanager->executeHooks('printFieldListWhere', $parameters); // Note that $action and $object may have been modified by hook
 $sql .= $hookmanager->resPrint;
 
+$sql .= $db->order($sortfield, $sortorder);
+
 $rc_total_pages = '';
 // if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
 // {
@@ -617,11 +617,15 @@ $rc_total_pages = '';
 // 		$offset = 0;
 // 	}
 // }
-$sql .= $db->order($sortfield, $sortorder);
 $sql .= $db->plimit($limit + 1, $offset);
 $resql = $db->query($sql);
+if (empty($resql))
+{
+	dol_print_error($db);
+	exit;
+}
+
 $num = $db->num_rows($resql);
-$rc_total_pages = $num;
 $i = 0;
 
 $helpurl = 'EN:Module_Stocks_En|FR:Module_Stock|';
@@ -910,111 +914,297 @@ print $hookmanager->resPrint;
 
 print "</tr>\n";
 if($fk_supplier) {
-	$fourn = new Fournisseur($db);
-	$fourn->fetch($fk_supplier);		
 	while ($i < ($limit ? min($num, $limit) : $num))
-  {
-    print "<tr>\n";
+	{
 		$objp = $db->fetch_object($resql);
-    
-    // Checkbox
-    print '<td>';
-    print '<input type="checkbox" class="check" name="choose'.$i.'">';
-    print '</td>';
-    
-    //REF
-		print '<td hidden><input hidden name="id'.$i.'" value="'.$objp->rowid.'"></td>';
-    print "<td><a href='/product/card.php?id=$objp->rowid'>" . $objp->ref . "</a></td>";
-    
-    // Categorías
-    print '<td class="minwidth200">';
-    print getCategories($objp->rowid, $db);
-    print '</td>';
-    
-    // Almaén
-    print '<td class="minwidth100">';
-    print $objp->warehouse;
-    print '</td>';
-		
-		// Stock CEDIS
-		print '<td class="minwidth100">';
-		print '<input type="hidden" id="cedis_stock'.$i.'" name="cedis_stock'.$i.'" value="'.$objp->stock_cedis.'">';
-		print $objp->stock_cedis;
-		print '</td>';
-		
-		// Stock Sucursales
-		if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
-			print '<td class="minwidth100">' . $objp->all_stock . '</td>';
-		}
-		
-		// Stock de Reórden
-		print '<td class="minwidth100">' . $objp->seuil_stock_alerte . '</td>';
-		
-		//STOCK
-		$warning = '';
-		// Rojo: si el stock físico en almacén es igual o menor al stock mínimo
-		if (($objp->stock_physique <= $objp->desiredstock) || $objp->stock_physique < 0)
+
+		if (!empty($conf->global->STOCK_SUPPORTS_SERVICES) || $objp->fk_product_type == 0)
 		{
-			$warning = img_warning($langs->trans('StockTooLow')).' ';
-		}
-		// Naranja: si el stock físico en el almacén es igual o menor al stock de reorden y mayor al stock mínimo.
-		if (($objp->stock_physique <= $objp->seuil_stock_alerte) && ($objp->stock_physique > $objp->desiredstock))
-		{
-			$warning = '<i class="fa fa-exclamation-triangle" aria-hidden="true" style="color: orange; font-size:24px;" title="Stock bajo"></i> ';
-		}
-		print '<td class="right minwidth100">'.  ($warning. $objp->stock_physique) .'</td>';
-	
+			$prod->fetch($objp->rowid);
+			$prod->load_stock('warehouseopen, warehouseinternal');
 
-		// Stock máximo
-		print '<td class="right minwidth100">'. $objp->stock_max .'</td>';
+			$ordered = $prod->stats_commande_fournisseur['qty'] - $prod->stats_reception['qty'];
 
-		$stocktobuy = $objp->stock_max - $objp->stock_physique;
-		// if($mode == 'virtual') {
-		// 	if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
-		// 		if(($stocktobuy <= $objp->stock_cedis) && ($stocktobuy >= 0)) $stocktobuy = $objp->stock_max - $stock;
-		// 		else if($objp->stock_max <= 0) $stocktobuy = 0;
-		// 		else $stocktobuy = $objp->stock_cedis;
-		// 	}else{
-		// 		$stocktobuy = $objp->stock_max - ($stock + $objp->all_stock);
-		// 		if($stocktobuy < 0) $stocktobuy = 0;
-		// 	}
-		// }
-		$functions_no_cedis = "";
-		$disabledQuantity = '';
-		if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) $functions_no_cedis = "oninput='validarNum(".$i.")' onchange='limpiarInput()'";
-		if($functions_no_cedis) {
-			$disabledQuantity = 'readonly';
-		}
-		print '<td class="right" style="min-width: 120px;"><input type="text" '. $disabledQuantity .'  id="tobuy'.$i.'" ' . $functions_no_cedis . ' size="4" name="tobuy'.$i.'" value="'.$stocktobuy.'"></td>';
+			// Show only with $ordered > 0  if isset $orderedchecked
+			if (!isset($orderedchecked) || $ordered > 0) {
+				// Multilangs
+				if (!empty($conf->global->MAIN_MULTILANGS))
+				{
+					$sql = 'SELECT label,description';
+					$sql .= ' FROM '.MAIN_DB_PREFIX.'product_lang';
+					$sql .= ' WHERE fk_product = '.$objp->rowid;
+					$sql .= ' AND lang = "'.$langs->getDefaultLang().'"';
+					$sql .= ' LIMIT 1';
 
-		// Ref. alterna
-		if($fk_supplier > 0){
-			$sql = " SELECT  s.nom, s.rowid, pfp.ref_fourn, p.cost_price as unitprice, pfp.remise_percent, p.cost_price_sucursal ";
-			$sql .= " FROM ".MAIN_DB_PREFIX."societe AS s ";
-			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_fournisseur_price AS pfp ON pfp.fk_soc = s.rowid ";
-			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product AS p ON p.rowid = pfp.fk_product ";
-			$sql .= " WHERE pfp.fk_product = ".$objp->rowid;
-			
-			$res = $db->query($sql);
-			$fournisseur = $db->fetch_object($res);	
+					$resqlm = $db->query($sql);
+					if ($resqlm)
+					{
+						$objtp = $db->fetch_object($resqlm);
+						if (!empty($objtp->description)) $objp->description = $objtp->description;
+						if (!empty($objtp->label)) $objp->label = $objtp->label;
+					}
+				}
 
-			if($user->fk_warehouse != $conf->global->CEDIS_WAREHOUSE){
-				print '<td class="right" style="min-width: 140px;">';
-				print $fourn->getNomUrl(1).' - '. "$" . price($fournisseur->cost_price_sucursal);  
+				$total_physical_stock = 0;
+				$total_to_deliver = 0;
+				$total_virtual_stock = 0;
+
+				// Virtual Stock
+				$result = $prod->load_stats_commande_fournisseur(0, '3,4', 1);
+				$virtual_stock = $prod->stock_reel - $stock_to_deliver + $prod->stats_commande_fournisseur['qty'];
+
+				$total_physical_stock += $prod->stock_reel;
+				$total_to_deliver += $stock_to_deliver;
+				$total_virtual_stock += $virtual_stock; 
+
+				$result = $prod->load_stats_commande_fournisseur(0, '3,4', 1);
+				$pedidosOC = $prod->stats_commande_fournisseur['qty'];
+				//Formula Stock Virtual
+				$total_virtual = $total_physical_stock - $total_to_deliver;
+
+				if ($usevirtualstock)
+				{
+					// If option to increase/decrease is not on an object validation, virtual stock may differs from physical stock.
+					$stock = $total_virtual;
+				}
+				else
+				{
+					$stock = $prod->stock_reel;
+				}
+
+				// Force call prod->load_stats_xxx to choose status to count (otherwise it is loaded by load_stock function)
+				if (isset($draftchecked)) {
+					$result = $prod->load_stats_commande_fournisseur(0, '0,1,2,3,4');
+				} else {
+					$result = $prod->load_stats_commande_fournisseur(0, '1,2,3,4');
+				}
+
+				$result = $prod->load_stats_reception(0, '4');
+
+				//print $prod->stats_commande_fournisseur['qty'].'<br>'."\n";
+				//print $prod->stats_reception['qty'];
+
+				// $desiredstock = ($objp->desiredstockpse ? $objp->desiredstockpse : $objp->desiredstock);
+				$desiredstock = ($objp->desiredstock ? $objp->desiredstock : 0); // Changed to take only main stock into count
+
+				$alertstock = ($objp->seuil_stock_alertepse ? $objp->seuil_stock_alertepse : $objp->seuil_stock_alerte);
+				$desiredstock_principal = ($objp->desiredstock_principal ? $objp->desiredstock_principal : 0);
+				$desiredstock_gpe = ($objp->desiredstock_gpe ? $objp->desiredstock_gpe : $objp->desiredstock_gpe);
+
+				$warning = '';
+				// Rojo: si el stock físico en almacén es igual o menor al stock mínimo
+				if (($objp->stock_physique <= $objp->desiredstock) || $objp->stock_physique < 0)
+				{
+					$warning = img_warning($langs->trans('StockTooLow')).' ';
+				}
+				// Naranja: si el stock físico en el almacén es igual o menor al stock de reorden y mayor al stock mínimo.
+				if (($objp->stock_physique <= $objp->seuil_stock_alerte) && ($objp->stock_physique > $objp->desiredstock))
+				{
+					$warning = '<i class="fa fa-exclamation-triangle" aria-hidden="true" style="color: orange; font-size:24px;" title="Stock bajo"></i> ';
+				}
+
+				//depending on conf, use either physical stock or
+				//virtual stock to compute the stock to buy value
+				$stocktobuy = max(max($desiredstock, $alertstock) - $stock - $ordered, 0);
+				$disabled = '';
+				if ($ordered > 0)
+				{
+					$stockforcompare = $usevirtualstock ? $stock : $stock + $ordered;
+					if ($stockforcompare >= $desiredstock)
+					{
+						$picto = img_picto('', './img/yes', '', 1);
+						$disabled = 'disabled';
+					}
+					else {
+						$picto = img_picto('', './img/no', '', 1);
+					}
+				} else {
+					//$picto = img_help('',$langs->trans("NoPendingReceptionOnSupplierOrder"));
+					$picto = img_picto($langs->trans("NoPendingReceptionOnSupplierOrder"), './img/no', '', 1);
+				}
+
+				print '<tr class="oddeven">';
+
+				// Checkbox
+				print '<td>';
+				print '<input type="checkbox" class="check" name="choose'.$i.'">';
 				print '</td>';
-			}else{
-				print '<td class="right" style="min-width: 140px;">';
-				print $fourn->getNomUrl(1).' - '. "$" . price($fournisseur->unitprice);  
+
+				// Ref
+				print '<td hidden><input hidden name="id'.$i.'" value="'.$prod->id.'"></td>';
+				print '<td class="nowrap minwidth100">'.$prod->getNomUrl(1, '').'</td>';
+
+				// Categorías
+				print '<td class="minwidth200">';
+				print $form->showCategories($objp->rowid, 'product', 1);
 				print '</td>';
+
+				// Almaén
+				print '<td class="minwidth100">';
+				$entrepot = new Entrepot($db);
+				$entrepot->fetch($objp->fk_entrepot);
+				print $entrepot->getNomUrl(1, '');
+				print '</td>';
+
+				// Stock CEDIS
+				print '<td class="minwidth100">';
+				print '<input type="hidden" id="cedis_stock'.$i.'" name="cedis_stock'.$i.'" value="'.$objp->stock_cedis.'">';
+				print $objp->stock_cedis;
+
+				print '</td>';
+
+				// Stock Sucursales
+				if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
+					print '<td class="minwidth100">' . $objp->all_stock . '</td>';
+				}
+
+				// Stock de Reórden
+				print '<td class="minwidth100">' . $objp->seuil_stock_alerte . '</td>';
+
+				// Stock deseado
+				// print '<td class="right" style="min-width: 75px;">'.($selectedSearchWarehouse ? $objp->desiredstock_warehouse : $desiredstock).'</td>';
+
+				//Stock deseado en almacen Matriz
+				// print '<td class="right" style="min-width: 75px;">'.$desiredstock_principal.'</td>';
+
+				//Stock deseado en almacen Guadalupe
+				// print '<td class="right" style="min-width: 75px;">'.$desiredstock_gpe.'</td>';
+
+				// Limit stock for alert
+				// print '<td class="right" style="min-width: 75px;">'. ($selectedSearchWarehouse ? $objp->alerte_warehouse : $alertstock).'</td>';
+
+				// Current stock (all warehouses) (stock virtual)
+				$virtual_stock = $objp->virtual_stock;
+				$physical_stock = $objp->stock_physique;
+				$stock = 0;
+				if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
+					$stock = $objp->stock_cedis;
+				}else{
+					$stock = $objp->virtual_stock;
+				}
+				print '<td class="right minwidth100">'.  ($warning. $stock) .'</td>';
+
+				// Stock máximo
+				print '<td class="right minwidth100">'. $objp->stock_max .'</td>';
+				
+				// Stock pedido
+				// print '<td class="right" style="min-width: 120px;"><a href="replenishorders.php?sproduct='.$prod->id.'">'.$ordered.'</a> '.$picto.'</td>';
+
+
+				// Stock a pedir
+				$stocktobuy = $objp->stock_max - $stock;
+				if($mode == 'virtual') {
+					if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
+						if(($stocktobuy <= $objp->stock_cedis) && ($stocktobuy >= 0)) $stocktobuy = $objp->stock_max - $stock;
+						else if($objp->stock_max <= 0) $stocktobuy = 0;
+						else $stocktobuy = $objp->stock_cedis;
+					}else{
+						$stocktobuy = $objp->stock_max - ($stock + $objp->all_stock);
+						if($stocktobuy < 0) $stocktobuy = 0;
+
+					}
+				} 
+				// else {
+				// 	if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
+				// 		if(($stocktobuy <= $objp->stock_cedis) && ($stocktobuy > 0)) $stocktobuy = $objp->stock_max - $objp->stock_physique;
+				// 		else if($objp->stock_max <= 0) $stocktobuy = 0;
+				// 		else $stocktobuy = $objp->stock_cedis;
+				// 	}else{
+				// 		if($stocktobuy <= 0) $stocktobuy = 0;
+				// 	}
+				// }
+
+				$functions_no_cedis = "";
+				$disabledQuantity = '';
+				if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) $functions_no_cedis = "oninput='validarNum(".$i.")' onchange='limpiarInput()'";
+				if($functions_no_cedis) {
+					$disabledQuantity = 'readonly';
+				}
+				print '<td class="right" style="min-width: 120px;"><input type="text" '. $disabledQuantity .'  id="tobuy'.$i.'" ' . $functions_no_cedis . ' size="4" name="tobuy'.$i.'" value="'.$stocktobuy.'"></td>';
+
+				
+				print "
+				<script>
+					function validarNum(index) {
+						var input = document.getElementById('tobuy' + index);
+						var input_stock = document.getElementById('cedis_stock' + index);
+						var valor = parseFloat(input.value); // Convertir a número
+						var valor_cedis = parseFloat(input_stock.value); // Convertir a número
+
+						valor = isNaN(valor) ? 0 : valor; // Manejar el caso en que no sea un número
+						input.value = valor;
+
+						if (valor > valor_cedis) {
+							var span = document.createElement('span');
+							span.style.color = 'red';
+							span.innerHTML = 'La cantidad a pedir no puede ser mayor que el stock en CEDIS.';
+
+							if (input.parentNode.lastChild.tagName == 'SPAN') {
+								input.parentNode.removeChild(input.parentNode.lastChild);
+							}
+
+							if (input.parentNode.lastChild.tagName == 'BR') {
+								input.parentNode.removeChild(input.parentNode.lastChild);
+							}
+
+							input.parentNode.appendChild(document.createElement('br'));
+							input.parentNode.appendChild(span);
+
+							input.value = valor_cedis;
+
+							if(valor_cedis > 0) input.value = valor_cedis;
+							else input.value = 0;
+						}else{
+							// Validamos que no exista un salto de línea
+							if (input.parentNode.lastChild.tagName == 'BR') {
+								input.parentNode.removeChild(input.parentNode.lastChild);
+							}
+							// Antes de insertar validamos que no exista ya el span
+							if (input.parentNode.lastChild.tagName == 'SPAN') {
+								input.parentNode.removeChild(input.parentNode.lastChild);
+							}
+						}
+					}
+				</script>";		
+
+				// Ref. alterna
+				if($fk_supplier > 0){
+					$sql = " SELECT  s.nom, s.rowid, pfp.ref_fourn, p.cost_price as unitprice, pfp.remise_percent, p.cost_price_sucursal ";
+					$sql .= " FROM ".MAIN_DB_PREFIX."societe AS s ";
+					$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_fournisseur_price AS pfp ON pfp.fk_soc = s.rowid ";
+					$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product AS p ON p.rowid = pfp.fk_product ";
+					$sql .= " WHERE pfp.fk_product = ".$prod->id;
+					
+					$res = $db->query($sql);
+					$fournisseur = $db->fetch_object($res);
+
+					$fourn = new Fournisseur($db);
+					$fourn->fetch($fk_supplier);					
+
+					if($user->fk_warehouse != $conf->global->CEDIS_WAREHOUSE){
+						print '<td class="right" style="min-width: 140px;">';
+						print $fourn->getNomUrl(1).' - '. "$" . price($fournisseur->cost_price_sucursal);  
+						print '</td>';
+					}else{
+						print '<td class="right" style="min-width: 140px;">';
+						print $fourn->getNomUrl(1).' - '. "$" . price($fournisseur->unitprice);  
+						print '</td>';
+					}
+				}else{
+					print '<td class="right" style="min-width: 140px;">';
+					print '<span><b>No hay proveedor seleccionado</b></span>';
+					print '</td>';
+				}
+
+				// Fields from hook
+				$parameters = array('objp'=>$objp);
+				$reshook = $hookmanager->executeHooks('printFieldListValue', $parameters); // Note that $action and $object may have been modified by hook
+				print $hookmanager->resPrint;
+
+				print '</tr>';	
 			}
-		}else{
-			print '<td class="right" style="min-width: 140px;">';
-			print '<span><b>No hay proveedor seleccionado</b></span>';
-			print '</td>';
 		}
-		
 		$i++;
-    print "</tr>\n";
 	}
 }
 
@@ -1063,19 +1253,34 @@ print '
 
 llxFooter();
 
-
-function getCategories($productId, $db) {
-	$sql = "SELECT 
-  c.label,
-  c.rowid 
-  FROM llx_categorie_product as ct, llx_categorie as c WHERE ct.fk_categorie = c.rowid AND ct.fk_product = $productId AND c.type = 0 AND c.entity IN (1)";
-
-$result = $db->query($sql);
-$toprint = array();
-while($row = $db->fetch_object($result)) {
-	$toprint[] = '<li class="select2-search-choice-dolibarr noborderoncategories" style="background: #aaa; color: #FFF; padding: 3px; font-size: 12px;">' . $row->label . '</li>';
-  }
-  return '<div class="select2-container-multi-dolibarr" style="width: 90%;"><ul class="select2-choices-dolibarr">'.implode(' ', $toprint).'</ul></div>';
-}
-
 $db->close();
+
+/**
+ *  Regresa rowid y tickets de venta POS del producto
+ *
+ *	@param  object  $db         Base de datos
+ *	@param  int     $fk_product Producto
+ *  @return array               Lista de tickets POS
+ */
+function rc_getTickets(&$db, $fk_product)
+{
+	$sql =  'SELECT t.rowid,t.ticketnumber '
+            .'FROM llx_pos_ticket AS t '
+			.'LEFT JOIN llx_pos_ticketdet AS td '
+			.'  ON t.rowid=td.fk_ticket '
+			.'WHERE td.fk_product='.$fk_product.' '
+			.'  AND t.fk_statut IN(1,2) '
+			.'  AND td.ls_warehouse_status NOT IN(6)'
+			.'  AND t.type=0 ';
+	if (!$res = $db->query($sql))
+	{
+		dol_print_error($db);
+		die();
+	}
+	$rows = array();
+	while ($row = $db->fetch_object($res))
+	{
+		$rows[$row->rowid] = $row->ticketnumber;
+	}
+	return $rows;
+}

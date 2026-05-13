@@ -1104,6 +1104,7 @@ if ($resql)
         print '<option value="correcion de stock">Corrección de stock</option>';
         print '<option value="factura validada">Factura validada</option>';
         print '<option value="regresar factura">Regresar factura al estado de borrador</option>';
+        print '<option value="Recepción del pedido a proveedor">Recepción del pedido a proveedor</option>';
 		print '</select>';
 	    print '</td>';
     }

@@ -296,7 +296,7 @@ if ($action == 'order' && isset($_POST['valid']))
 			$sql .= " WHERE fk_soc = ".$suppliersid[$i];
 			$sql .= " AND source = 42 AND fk_statut = 0";
 			$sql .= " AND entity IN (".getEntity('commande_fournisseur').")";
-			$sql .= " ORDER BY date_creation DESC";
+			$sql .= " ORDER BY date_creation DESC LIMIT 1";
 			$resql = $db->query($sql);
 			if ($resql && $db->num_rows($resql) > 0) {
 				$obj = $db->fetch_object($resql);
@@ -344,6 +344,7 @@ if ($action == 'order' && isset($_POST['valid']))
 				$order->mode_reglement_id = $order->thirdparty->mode_reglement_supplier_id;
 				$order->fk_entrepot = $user->fk_warehouse;
 				$id = $order->create($user);
+
 				if ($id < 0) {
 					$fail++;
 					$msg = $langs->trans('OrderFail')."&nbsp;:&nbsp;";
@@ -353,7 +354,8 @@ if ($action == 'order' && isset($_POST['valid']))
 				$i++;
 			}
 		}
-
+		
+		
 		if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && $id){
 			$orderCreated = new CommandeFournisseur($db);
 			$orderCreated->fetch($id);
@@ -370,7 +372,7 @@ if ($action == 'order' && isset($_POST['valid']))
 				setEventMessages($msg, null, 'errors');
 			}
 		}
-
+		
 		if ($errorQty) setEventMessages($langs->trans('ErrorOrdersNotCreatedQtyTooLow'), null, 'warnings');
 		if ($errorprovedor)setEventMessages($langs->trans('Seleccione un proveedor'), null, 'warnings');
 
@@ -426,7 +428,8 @@ $sql .= ' IFNULL(s.reel,0) AS stock_physique,';
 // Virtual stock
 $sql .= ' IFNULL(s.reel, 0) as virtual_stock,';
 // Stock CEDIS
-$sql .= ' IFNULL(stock_cedis.reel, 0) - (IFNULL(stats_commande.qty, 0) - IFNULL(stats_sending.qty, 0) * -1) AS stock_cedis,';
+//- (IFNULL(stats_commande.qty, 0) - IFNULL(stats_sending.qty, 0) * -1) 
+$sql .= ' IFNULL(stock_cedis.reel, 0) AS stock_cedis,';
 $sql .= ' IFNULL(pw.stock_max, 0) AS stock_max,';
 
 // all stock, stock reorder and all stock max 
@@ -621,14 +624,13 @@ $resql = $db->query($sql);
 $num = $db->num_rows($resql);
 $rc_total_pages = $num;
 $i = 0;
-
 $helpurl = 'EN:Module_Stocks_En|FR:Module_Stock|';
 $helpurl .= 'ES:M&oacute;dulo_Stocks';
 
 llxHeader('', $title, $helpurl, '');
 
 $head = array();
-$head[0][0] = DOL_URL_ROOT.'/product/stock/replenishv2.php';
+$head[0][0] = DOL_URL_ROOT.'/product/stock/replenish.php';
 $head[0][1] = $title;
 $head[0][2] = 'replenish';
 $head[1][0] = DOL_URL_ROOT.'/product/stock/replenishreport.php';
