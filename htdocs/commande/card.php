@@ -45,6 +45,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/order.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 define("BACKEND_URL", getenv('BACKEND_PLATFORM_URL'));
+define("COPPEL_API_KEY", getenv('VALID_API_KEY_ERP'));
 if (!empty($conf->propal->enabled)) {
 	require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 }
@@ -144,6 +145,31 @@ if (empty($reshook))
 
     include DOL_DOCUMENT_ROOT . '/core/actions_lineupdown.inc.php'; // Must be include, not include_once
 
+		function printCoppelShippingLabel($orderId) {
+			$url = BACKEND_URL . "api/coppel/erp/orders/$orderId/shipping_label";
+			//$url = 'https://test-plataforma.sistemadermaglobal.com/' . "api/coppel/erp/orders/$orderId/shipping_label";
+			$headers = [
+				'api-key: ' . COPPEL_API_KEY
+			];
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, $url);
+			curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+			$result = curl_exec($ch);
+			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			header('Content-Type: application/pdf');
+			header('Content-Disposition: attachment; filename="Guia-Coppel-'. $orderId .'".pdf');
+			header('Content-Length: ' . strlen($result));
+			header('Cache-Control: private, max-age=0, must-revalidate');
+			header('Pragma: public');
+			if ($code === 200) {
+				echo $result;
+			} else {
+				echo "Error {$code}: {$body}";
+			}
+			curl_close($ch);
+		}
     // Action clone object
     if ($action == 'confirm_clone' && $confirm == 'yes' && $usercancreate) {
         if (1 == 0 && !GETPOST('clone_content') && !GETPOST('clone_receivers')) {
@@ -173,6 +199,9 @@ if (empty($reshook))
 		catch (Exception $e) {
 			setEventMessages($e->getMessage(), null, 'errors');
 		}
+	}
+	elseif ($action == 'print_label_coppel') {
+		printCoppelShippingLabel($object->pack_id);
 	}
 	// Synchronize guide number
 	elseif ($action == 'sync_guide') {
@@ -2887,6 +2916,11 @@ if ($action == 'create' && $usercancreate)
 				//Print Label
 				if ($soc->name == "MercadoLibre" && $object->statut > Commande::STATUS_DRAFT){
 					print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&amp;action=print_label_ml">'.$langs->trans('PrintLabel').'</a>';
+				}
+
+				//Print Label
+				if ($soc->name == "COPPEL" && $object->statut > Commande::STATUS_DRAFT){
+					print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&amp;action=print_label_coppel">'.$langs->trans('PrintLabel').'</a>';
 				}
 
 				// Reopen a closed order
