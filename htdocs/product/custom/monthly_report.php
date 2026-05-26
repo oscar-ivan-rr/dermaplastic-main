@@ -252,7 +252,7 @@ print '</table>';
 /** -------------------------- Sales table starts ------------------------- */ 
 $monthly_income = $sales->total_ht + $sales->total_tva;
 $gross_profit = $monthly_income - $sales->cost_price;
-$sale_per_day = $monthly_income / $days;
+$sale_per_day = $sales->total_ht / $days;
 $cost_per_day = $sales->cost_price / $days;
 $cost_avg = $sales->cost_price / $sales->qty;
 $prod_cost_avg = $sale_per_day / $cost_avg;
