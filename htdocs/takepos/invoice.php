@@ -864,8 +864,8 @@ $applyDiscontLines = array();
 foreach ($invoice->lines as $line)
 {
 	$categories = getProductCategories($line->fk_product, $invoice, $db);
-	// ANTIEDAD
-	if(in_array(9, $categories)) {
+	// CAPILAR
+	if(in_array(10, $categories)) {
 		$sql='SELECT desc_max FROM '.MAIN_DB_PREFIX.'product where rowid='.$line->fk_product . " LIMIT 1";
 		$resql=$db->query($sql);
 		$opt=$db->fetch_object($resql);
