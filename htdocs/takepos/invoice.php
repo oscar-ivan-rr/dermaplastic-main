@@ -869,7 +869,7 @@ foreach ($invoice->lines as $line)
 		$sql='SELECT desc_max FROM '.MAIN_DB_PREFIX.'product where rowid='.$line->fk_product . " LIMIT 1";
 		$resql=$db->query($sql);
 		$opt=$db->fetch_object($resql);
-		if($opt->desc_max > 0 && in_array(9, $categories)) {
+		if($opt->desc_max > 0) {
 			$applyDiscontLines[] = $line;
 		}
 	}
