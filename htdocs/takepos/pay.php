@@ -283,6 +283,62 @@ else print "var received=0;";
             });
         }, 2500);
     }
+
+	function removePromo() {
+		var invoiceid = <?php echo ($invoiceid > 0 ? $invoiceid : 0); ?>;
+
+		$('#promo-remove-btn').prop('disabled', true).css({'background':'#888', 'cursor':'not-allowed'});
+
+		$.ajax({
+			url: 'invoice.php',
+			data: {
+				action: 'removepromo',
+				place: <?php echo $place; ?>,
+				invoiceid: invoiceid
+			},
+			dataType: 'json',
+			success: function(resp) {
+				if (resp.success) {
+					location.reload();
+				}
+			},
+			error: function() {
+				$('#promo-msg').html('<span style="color:#f2dede;">Error al quitar el código</span>');
+				$('#promo-remove-btn').prop('disabled', false).css({'background':'#c0392b', 'cursor':'pointer'});
+			}
+		});
+	}
+
+	function applyPromo() {
+		var code = $('#promo-code-input').val().trim().toUpperCase();
+		if (!code) return;
+
+		var invoiceid = <?php echo ($invoiceid > 0 ? $invoiceid : 0); ?>;
+
+		$.ajax({
+			url: 'invoice.php',
+			data: {
+				action: 'applypromo',
+				code: code,
+				place: <?php echo $place; ?>,
+				invoiceid: invoiceid
+			},
+			dataType: 'json',
+			success: function(resp) {
+				if (resp.success) {
+					$('#promo-msg').html('<span style="color:#dff0d8;">✓ Descuento del ' + resp.discount + '% aplicado</span>');
+					$('#promo-code-input').prop('readonly', true);
+					$('#promo-apply-btn').prop('disabled', true).css({'background':'#888', 'cursor':'not-allowed'});
+					setTimeout(function() { location.reload(); }, 900);
+				} else {
+					$('#promo-msg').html('<span style="color:#f2dede;">Código inválido</span>');
+				}
+			},
+			error: function() {
+				$('#promo-msg').html('<span style="color:#f2dede;">Error al aplicar el código</span>');
+			}
+		});
+	}
 </script>
 
 <!-- Estilos CSS para el estado de procesamiento -->
@@ -332,7 +388,35 @@ else print "var received=0;";
 </center>
 </div>
 
-<div style="position:absolute; top:33%; left:5%; height:55%; width:91%; display: inline-table;">
+<div style="position:absolute; top:33%; left:5%; width:91%;">
+    <div style="background:#2a6496; padding:5px 8px; border-radius:3px;">
+        <center>
+            <span style="color:white; font-size:13px; margin-right:4px;">Código:</span>
+            <?php $promoApplied = !empty($_SESSION['takepos_promo_code']); ?>
+            <input type="text" id="promo-code-input" placeholder="Código de promoción"
+                   style="width:<?php echo $promoApplied ? '40%' : '58%'; ?>; padding:3px 6px; font-size:13px; text-transform:uppercase; border:none; border-radius:3px;"
+                   <?php if ($promoApplied) echo 'value="'.htmlspecialchars($_SESSION['takepos_promo_code']).'" readonly'; ?>>
+            <button type="button" id="promo-apply-btn" onclick="applyPromo()"
+                    style="width:20%; padding:3px 2px; font-size:13px; background:<?php echo $promoApplied ? '#888' : '#5cb85c'; ?>; color:white; border:none; border-radius:3px; cursor:<?php echo $promoApplied ? 'not-allowed' : 'pointer'; ?>; margin-left:3px;"
+                    <?php if ($promoApplied) echo 'disabled'; ?>>
+                Aplicar
+            </button>
+            <?php if ($promoApplied): ?>
+            <button type="button" id="promo-remove-btn" onclick="removePromo()"
+                    style="width:20%; padding:3px 2px; font-size:13px; background:#c0392b; color:white; border:none; border-radius:3px; cursor:pointer; margin-left:3px;">
+                Quitar
+            </button>
+            <?php endif; ?>
+        </center>
+        <div id="promo-msg" style="font-size:12px; text-align:center; min-height:15px; margin-top:2px;">
+            <?php if (!empty($_SESSION['takepos_promo_code'])): ?>
+                <span style="color:#dff0d8;">✓ <?php echo htmlspecialchars($_SESSION['takepos_promo_code']); ?> (<?php echo $_SESSION['takepos_promo_discount']; ?>% desc.)</span>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<div style="position:absolute; top:44%; left:5%; height:50%; width:91%; display: inline-table;">
 <?php
 $action_buttons = array(
 	array(

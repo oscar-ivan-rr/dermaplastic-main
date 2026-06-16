@@ -133,6 +133,45 @@ else $soc->fetch($conf->global->$constforcompanyid);
  * Actions
  */
 
+if ($action == "applypromo") {
+    $PROMO_CODES = array('PROMOS5' => 5);
+    $code = strtoupper(trim(GETPOST('code', 'alpha')));
+    header('Content-Type: application/json');
+    if ($placeid > 0 && isset($PROMO_CODES[$code])) {
+        $_SESSION['takepos_promo_discount'] = $PROMO_CODES[$code];
+        $_SESSION['takepos_promo_code'] = $code;
+        $promoDiscount = $PROMO_CODES[$code];
+        $invoice->fetch($placeid);
+        foreach ($invoice->lines as $line) {
+            $combined = min(100, $line->remise_percent + $promoDiscount);
+            $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $combined, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+        }
+        $invoice->fetch($placeid);
+        echo json_encode(array('success' => true, 'discount' => $promoDiscount, 'new_total' => $invoice->total_ttc));
+    } else {
+        echo json_encode(array('success' => false, 'error' => 'Código de promoción inválido'));
+    }
+    exit;
+}
+
+if ($action == "removepromo") {
+    header('Content-Type: application/json');
+    if ($placeid > 0 && !empty($_SESSION['takepos_promo_discount'])) {
+        $promoDiscount = (float)$_SESSION['takepos_promo_discount'];
+        unset($_SESSION['takepos_promo_discount'], $_SESSION['takepos_promo_code']);
+        $invoice->fetch($placeid);
+        foreach ($invoice->lines as $line) {
+            $restored = max(0, $line->remise_percent - $promoDiscount);
+            $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $restored, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+        }
+        $invoice->fetch($placeid);
+        echo json_encode(array('success' => true, 'new_total' => $invoice->total_ttc));
+    } else {
+        echo json_encode(array('success' => false));
+    }
+    exit;
+}
+
 if ($action == 'valid' && $user->rights->facture->creer) {
 	if ($pay == "cash") $bankaccount = $conf->global->{'CASHDESK_ID_BANKACCOUNT_CASH' . $_SESSION["takeposterminal"]};            // For backward compatibility
 	elseif ($pay == "card") $bankaccount = $conf->global->{'CASHDESK_ID_BANKACCOUNT_CB' . $_SESSION["takeposterminal"]};          // For backward compatibility
@@ -400,6 +439,8 @@ if ($action == 'valid' && $user->rights->facture->creer) {
 		if ($result_payment < 0) dol_print_error($db, $object->error);
 	}
 	//* ========= End Set facture paiement method from object paiement ==================
+
+	unset($_SESSION['takepos_promo_discount'], $_SESSION['takepos_promo_code']);
 }
 
 if ($action == 'history')
@@ -902,6 +943,15 @@ if($totalLines >= 2) {
 	foreach ($applyDiscontLines as $line1) {
 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
 	}
+}
+
+if (!empty($_SESSION['takepos_promo_discount']) && $placeid > 0) {
+    $promoDiscount = (float)$_SESSION['takepos_promo_discount'];
+    $invoice->fetch($placeid);
+    foreach ($invoice->lines as $line) {
+        $combined = min(100, $line->remise_percent + $promoDiscount);
+        $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $combined, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+    }
 }
 // $c = min(count($applyDiscontLines), count($applyDiscontLines2));
 // $chunks = array_chunk($applyDiscontLines, 4);
