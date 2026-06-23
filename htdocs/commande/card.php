@@ -46,6 +46,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 define("BACKEND_URL", getenv('BACKEND_PLATFORM_URL'));
 define("COPPEL_API_KEY", getenv('VALID_API_KEY_ERP'));
+define("LIVERPOOL_API_KEY", getenv('VALID_API_KEY_ERP'));
 if (!empty($conf->propal->enabled)) {
 	require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 }
@@ -170,6 +171,31 @@ if (empty($reshook))
 			}
 			curl_close($ch);
 		}
+
+		function printLiverpoolShippingLabel($orderId) {
+			$url = BACKEND_URL . "api/liverpool/erp/orders/$orderId/shipping_label";
+			$headers = [
+				'api-key: ' . LIVERPOOL_API_KEY
+			];
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, $url);
+			curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+			$result = curl_exec($ch);
+			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			header('Content-Type: application/pdf');
+			header('Content-Disposition: attachment; filename="Guia-Liverpool-'. $orderId .'".pdf');
+			header('Content-Length: ' . strlen($result));
+			header('Cache-Control: private, max-age=0, must-revalidate');
+			header('Pragma: public');
+			if ($code === 200) {
+				echo $result;
+			} else {
+				echo "Error {$code}: {$body}";
+			}
+			curl_close($ch);
+		}
     // Action clone object
     if ($action == 'confirm_clone' && $confirm == 'yes' && $usercancreate) {
         if (1 == 0 && !GETPOST('clone_content') && !GETPOST('clone_receivers')) {
@@ -202,6 +228,9 @@ if (empty($reshook))
 	}
 	elseif ($action == 'print_label_coppel') {
 		printCoppelShippingLabel($object->pack_id);
+	}elseif($action == 'print_label_liverpool') {
+		printLiverpoolShippingLabel($object->pack_id);
+		// printLiverpoolShippingLabel('9000002255');
 	}
 	// Synchronize guide number
 	elseif ($action == 'sync_guide') {
@@ -2921,6 +2950,11 @@ if ($action == 'create' && $usercancreate)
 				//Print Label
 				if ($soc->name == "COPPEL" && $object->statut > Commande::STATUS_DRAFT){
 					print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&amp;action=print_label_coppel">'.$langs->trans('PrintLabel').'</a>';
+				}
+
+				//Print Label
+				if ($soc->name == "Liverpool" && $object->statut > Commande::STATUS_DRAFT){
+					print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&amp;action=print_label_liverpool">'.$langs->trans('PrintLabel').'</a>';
 				}
 
 				// Reopen a closed order
