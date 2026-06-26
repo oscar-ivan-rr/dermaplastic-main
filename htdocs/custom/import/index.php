@@ -33,6 +33,14 @@ if (file_exists($path)) {
 	}
 }
 
+$path_levels = './logs/stock_levels/notfoundimport/';
+if (file_exists($path_levels)) {
+	$files = glob($path_levels . '/*');
+	foreach($files as $file){
+		if(is_file($file)) unlink($file);
+	}
+}
+
 
 // Security check
 if ($element == 'product') $result = restrictedArea($user, 'produit');
@@ -257,6 +265,193 @@ else if($action == 'update_stock'){
 		}
 	}
 }
+
+else if ($action == 'update_stock_levels') {
+	global $db, $user, $conf, $langs;
+	$error = 0;
+
+	if ($_FILES['file_xsl']['error'] == 4) {
+		$error++;
+		setEventMessage($langs->trans('FileNotSelected'), 'warnings');
+	}
+
+	if ($delimiter != ',' && $delimiter != ';') {
+		$error++;
+		setEventMessage($langs->trans('ErrorDelimiterFormat'), 'errors');
+	}
+	$file_name = $_FILES['file_xsl']['name'];
+
+	if (!$error) {
+		$rowsNotProcessed = array();
+		$totalProcessed  = 0;
+
+		if (dol_add_file_process($conf->mycompany->dir_temp, 1, -1, 'file_xsl', '', null, '', 0, false) > 0) {
+			$filepath = $conf->mycompany->dir_temp . "/$file_name";
+
+			if (false === ($gestor = fopen($filepath, "r"))) {
+				setEventMessage('Error al abrir el archivo', 'errors');
+				return;
+			}
+
+			// Precargar almacenes (ref normalizado -> rowid) en un solo query
+			$warehouseMap = array();
+			$resql_w = $db->query("SELECT rowid, ref FROM ".MAIN_DB_PREFIX."entrepot");
+			if ($resql_w) {
+				while ($o = $db->fetch_object($resql_w)) {
+					$warehouseMap[strtoupper(trim($o->ref))] = (int) $o->rowid;
+				}
+			}
+
+			// Precargar productos (barcode normalizado -> rowid) en un solo query
+			$productMap = array();
+			$resql_p = $db->query("SELECT rowid, barcode FROM ".MAIN_DB_PREFIX."product WHERE barcode IS NOT NULL AND barcode <> ''");
+			if ($resql_p) {
+				while ($o = $db->fetch_object($resql_p)) {
+					$key = preg_replace('/[^a-zA-Z0-9]/', '', $o->barcode);
+					if ($key !== '') $productMap[$key] = (int) $o->rowid;
+				}
+			}
+
+			// Precargar pares (fk_product:fk_entrepot) que ya existen para decidir UPDATE vs INSERT.
+			$existingPairs = array();
+			$resql_e = $db->query("SELECT fk_product, fk_entrepot FROM ".MAIN_DB_PREFIX."product_warehouse_properties");
+			if ($resql_e) {
+				while ($o = $db->fetch_object($resql_e)) {
+					$existingPairs[$o->fk_product.':'.$o->fk_entrepot] = true;
+				}
+			}
+
+			// Transacción para minimizar el costo de fsync por query en este lote grande
+			$db->begin();
+
+			$isFirstRow = true;
+			while (($register = fgetcsv($gestor, 1000, $delimiter)) !== FALSE) {
+				if ($isFirstRow) { $isFirstRow = false; continue; }
+				if (count($register) < 5) continue;
+
+				// BOM UTF-8 que Excel suele agregar a la primera celda
+				$register[0] = preg_replace('/^\xEF\xBB\xBF/', '', $register[0]);
+
+				$warehouseRef = trim($register[0]);
+				$barcode      = trim($register[1]);
+				$stock_min    = $register[2];
+				$rop          = $register[3];
+				$stock_max    = $register[4];
+
+				$rowError = '';
+				if (empty($warehouseRef) || empty($barcode)) {
+					$rowError = 'Almacén o código de barras vacío';
+				} elseif (!is_numeric($stock_min) || !is_numeric($rop) || !is_numeric($stock_max)) {
+					$rowError = 'Valor no numérico';
+				} elseif ($stock_min < 0 || $rop < 0 || $stock_max < 0) {
+					$rowError = 'Valor negativo';
+				}
+
+				$warehouseKey = strtoupper($warehouseRef);
+				$barcodeKey   = preg_replace('/[^a-zA-Z0-9]/', '', $barcode);
+
+				if ($rowError === '' && !isset($warehouseMap[$warehouseKey])) {
+					$rowError = 'Almacén no encontrado: '.$warehouseRef;
+				}
+				if ($rowError === '' && !isset($productMap[$barcodeKey])) {
+					$rowError = 'Producto no encontrado';
+				}
+
+				if ($rowError !== '') {
+					$rowsNotProcessed[] = array(
+						'warehouse' => $warehouseRef,
+						'barcode'   => $barcode,
+						'stock_min' => $stock_min,
+						'rop'       => $rop,
+						'stock_max' => $stock_max,
+						'error'     => $rowError
+					);
+					continue;
+				}
+
+				$warehouseId   = $warehouseMap[$warehouseKey];
+				$productId     = $productMap[$barcodeKey];
+				$stock_min_int = (int) $stock_min;
+				$rop_int       = (int) $rop;
+				$stock_max_int = (int) $stock_max;
+
+				$pairKey = $productId.':'.$warehouseId;
+				if (isset($existingPairs[$pairKey])) {
+					$sql = "UPDATE ".MAIN_DB_PREFIX."product_warehouse_properties "
+						. "SET seuil_stock_alerte = $rop_int, "
+						. "desiredstock = $stock_min_int, "
+						. "stock_max = $stock_max_int "
+						. "WHERE fk_product = $productId AND fk_entrepot = $warehouseId";
+				} else {
+					$sql = "INSERT INTO ".MAIN_DB_PREFIX."product_warehouse_properties "
+						. "(fk_product, fk_entrepot, seuil_stock_alerte, desiredstock, stock_max) "
+						. "VALUES ($productId, $warehouseId, $stock_min_int, $rop_int, $stock_max_int)";
+					// Marcar como existente para que duplicados dentro del mismo CSV hagan UPDATE.
+					$existingPairs[$pairKey] = true;
+				}
+
+				if ($db->query($sql)) {
+					$totalProcessed++;
+				} else {
+					$rowsNotProcessed[] = array(
+						'warehouse' => $warehouseRef,
+						'barcode'   => $barcode,
+						'stock_min' => $stock_min,
+						'rop'       => $rop,
+						'stock_max' => $stock_max,
+						'error'     => 'Error SQL: '.$db->lasterror()
+					);
+				}
+			}
+			fclose($gestor);
+
+			$db->commit();
+
+			if (count($rowsNotProcessed) > 0) {
+				$path = './logs/stock_levels/notfoundimport/';
+				if (!file_exists($path)) mkdir($path, 0777, true);
+				$filename = $path . 'filas_no_procesadas.csv';
+				$fp = fopen($filename, 'w');
+				fputcsv($fp, array('Almacen', 'Código de barras', 'Stock min', 'ROP', 'Stock Max', 'Error'));
+				foreach ($rowsNotProcessed as $row) fputcsv($fp, $row);
+				fclose($fp);
+				setEventMessage('Procesadas: '.$totalProcessed.'. Filas no procesadas: '.count($rowsNotProcessed), 'warnings');
+			} else {
+				setEventMessage('Niveles de stock actualizados correctamente. Procesadas: '.$totalProcessed);
+			}
+
+			dol_delete_file($filepath, 0, 0, 0, null, false, 0);
+		}
+	}
+}
+
+else if ($action == 'clean_stock_duplicates') {
+	global $db, $langs;
+
+	// Contar duplicados antes de borrar (pares con más de una fila)
+	$sqlCount = "SELECT COUNT(*) AS dup_rows FROM ("
+		. "SELECT fk_product, fk_entrepot, COUNT(*) AS c "
+		. "FROM ".MAIN_DB_PREFIX."product_warehouse_properties "
+		. "GROUP BY fk_product, fk_entrepot HAVING c > 1) t";
+	$dupRows = 0;
+	$resqlCount = $db->query($sqlCount);
+	if ($resqlCount && ($o = $db->fetch_object($resqlCount))) {
+		$dupRows = (int) $o->dup_rows;
+	}
+
+	// Borrar duplicados conservando el rowid menor por cada par (fk_product, fk_entrepot).
+	$sqlDelete = "DELETE p1 FROM ".MAIN_DB_PREFIX."product_warehouse_properties p1 "
+		. "INNER JOIN ".MAIN_DB_PREFIX."product_warehouse_properties p2 "
+		. "WHERE p1.rowid > p2.rowid "
+		. "AND p1.fk_product = p2.fk_product "
+		. "AND p1.fk_entrepot = p2.fk_entrepot";
+	if ($db->query($sqlDelete)) {
+		$deleted = method_exists($db, 'affected_rows') ? $db->affected_rows($db->lastquery) : 0;
+		setEventMessage('Duplicados encontrados: '.$dupRows.'. Filas eliminadas: '.$deleted);
+	} else {
+		setEventMessage('Error al limpiar duplicados: '.$db->lasterror(), 'errors');
+	}
+}
 /*
  * View
  */
@@ -412,7 +607,7 @@ $parameters = array('type' => $type, 'user' => $user);
 $reshook = $hookmanager->executeHooks('dashboardProductsServices', $parameters, $object); // Note that $action and $object may have been modified by hook
 
 // Actualizar stock deseado y limite de stock
-if ($element == 'product') {
+/*if ($element == 'product') {
     print '<br>';
     print '<div class="div-table-responsive-no-min">';
     print '<form name="import_elements" action="' . $_SERVER["PHP_SELF"] . '?element='.$element.'&type='.$type.'" method="POST" enctype="multipart/form-data">';
@@ -473,7 +668,51 @@ if ($element == 'product') {
     print '</form>';
 
     print '</div>';
+}*/
+
+// Importar mínimos, ROP y máximos por almacén (almacén viene como string en el CSV)
+if ($element == 'product') {
+    print '<br>';
+    print '<div class="div-table-responsive-no-min">';
+    print '<form name="import_stock_levels" action="' . $_SERVER["PHP_SELF"] . '?element='.$element.'&type='.$type.'" method="POST" enctype="multipart/form-data">';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
+    print '<table class="noborder centpercent">';
+    print '<tr class="liste_titre"><th colspan="2">Importar mínimos, ROP y máximos por almacén (CSV)</th></tr>';
+    print '<input type="hidden" name="action" value="update_stock_levels">';
+
+    print '<tr><td colspan="2"><em>Formato esperado: <strong>Almacen, Código de barras, Stock min, ROP, Stock Max</strong></td></tr>';
+
+    // File type
+    print '<tr><td>Tipo de CSV: </td><td>';
+    print $form->selectarray('delimiter', array(',' => $langs->trans('CsvWithComma'), ';' => $langs->trans('CsvWithSemicolon')));
+    print '</td></tr>';
+
+    // File
+    print '<tr><td>Seleccione archivo CSV para importar:</td><td><input type="file" name="file_xsl" accept=".csv"></td></tr>';
+
+    // Errors file
+    $path_levels_view = './logs/stock_levels/notfoundimport/';
+    $filename_levels_view = $path_levels_view . 'filas_no_procesadas.csv';
+    if (file_exists($filename_levels_view)) {
+        print '<tr><td id="txtRowsNotProcessed">Filas no procesadas</td><td>';
+        print '<a href="' . $filename_levels_view . '" download>Descargar archivo</a>';
+        print '</td></tr>';
+        print '<style>
+            #txtRowsNotProcessed { color: red; font-weight: bold; }
+            #txtRowsNotProcessed a { color: red; font-weight: bold; }
+        </style>';
+    }
+
+    print '</table>';
+    print '<br><div class="center">';
+    print '<input type="submit" class="button" name="bouton" value="' . $langs->trans('Import') . '">';
+    print '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+    print '<input type="button" class="button" name="cancel" value="' . $langs->trans("Cancel") . '" onclick="javascript:history.go(-1)">';
+    print '</div>';
+    print '</form>';
+    print '</div>';
 }
+
 // End of page
 llxFooter();
 $db->close();
