@@ -16,6 +16,7 @@ require '../../main.inc.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/import/class/import.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/import/class/societe.massupdate.php';
 
 $element       = GETPOST('element', 'alpha');
 $type          = GETPOST("type", 'int');
@@ -36,6 +37,14 @@ if (file_exists($path)) {
 $path_levels = './logs/stock_levels/notfoundimport/';
 if (file_exists($path_levels)) {
 	$files = glob($path_levels . '/*');
+	foreach($files as $file){
+		if(is_file($file)) unlink($file);
+	}
+}
+
+$path_societe = './logs/societe/notfoundimport/';
+if (file_exists($path_societe)) {
+	$files = glob($path_societe . '/*');
 	foreach($files as $file){
 		if(is_file($file)) unlink($file);
 	}
@@ -73,32 +82,48 @@ if ($action == 'add') {
 	if (!$error) {
 		if (dol_add_file_process($conf->mycompany->dir_temp, 1, -1, 'file_xsl', '', null, '', 0, false) > 0) {
 			$filepath = $conf->mycompany->dir_temp . "/$file_name";
-	
-			$import = new ImportExcel($db, intval($type), $filepath, $delimiter, $user, $currency_rate, $currency);
-			$info = $import->importData();
-			
-			// TODO: Show inserts, updates and errors
-            if($element == 'product') {//Para productos
-                if ($info['inserts'] > 0) setEventMessage($langs->trans("AddedProducts", $info['inserts']));
-                if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedProducts", $info['updates']));
-                if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningProducts", $info['warnings']), 'warnings');
-                if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedProducts", $info['errors']), 'errors');
-            }
-            else if($element == 'societe') {//Para clientes
-                if ($info['inserts'] > 0) setEventMessage($langs->trans("AddedSocietes", $info['inserts']));
-                if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedSocietes", $info['updates']));
-                if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningSocietes", $info['warnings']), 'warnings');
-                if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedSocietes", $info['errors']), 'errors');
-            }
-            else{//Para proveedores
-                if ($info['inserts'] > 0) setEventMessage($langs->trans("AddedSuppliers", $info['inserts']));
-                if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedSuppliers", $info['updates']));
-                if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningSuppliers", $info['warnings']), 'warnings');
-                if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedSuppliers", $info['errors']), 'errors');
-            }
+
+			$type_effective = intval($type != '' ? $type : GETPOST('type_import', 'int'));
+
+			if ($element == 'societe' && $type_effective == 2) {
+				// Clientes: actualización masiva con SQL directo, emparejada por
+				// Código de Cliente. No crea clientes nuevos.
+				$info = societe_mass_update($db, $user, $langs, $conf, $filepath, $delimiter);
+
+				if ($info['updates'] > 0) setEventMessage('Clientes actualizados: '.$info['updates']);
+				if ($info['warnings'] > 0) setEventMessage('Advertencias: '.$info['warnings'].' (ver archivo de filas no procesadas)', 'warnings');
+				if ($info['errors'] > 0) setEventMessage('Filas no procesadas: '.$info['errors'].' (ver archivo de filas no procesadas)', 'errors');
+				if ($info['updates'] == 0 && $info['errors'] == 0 && $info['warnings'] == 0) setEventMessage('El archivo no contenía filas para procesar', 'warnings');
+
+				if (count($info['rows_failed']) > 0) {
+					if (!file_exists($path_societe)) mkdir($path_societe, 0777, true);
+					$fp = fopen($path_societe . 'clientes_no_procesados.csv', 'w');
+					fputcsv($fp, array('Línea', 'Código de Cliente', 'Nombre', 'Tipo', 'Mensaje'));
+					foreach ($info['rows_failed'] as $row) fputcsv($fp, $row);
+					fclose($fp);
+				}
+			}
+			else {
+				$import = new ImportExcel($db, $type_effective, $filepath, $delimiter, $user, $currency_rate, $currency);
+				$info = $import->importData();
+
+				// TODO: Show inserts, updates and errors
+				if($element == 'product') {//Para productos
+					if ($info['inserts'] > 0) setEventMessage($langs->trans("AddedProducts", $info['inserts']));
+					if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedProducts", $info['updates']));
+					if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningProducts", $info['warnings']), 'warnings');
+					if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedProducts", $info['errors']), 'errors');
+				}
+				else{//Para proveedores
+					if ($info['inserts'] > 0) setEventMessage($langs->trans("AddedSuppliers", $info['inserts']));
+					if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedSuppliers", $info['updates']));
+					if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningSuppliers", $info['warnings']), 'warnings');
+					if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedSuppliers", $info['errors']), 'errors');
+				}
+				unset($import);
+			}
+
 			dol_delete_file($filepath, 0, 0, 0, null, false, 0);
-	
-			unset($import);
 		}
 	}
 }
@@ -506,6 +531,10 @@ if ($element != 'product' && $type == '') {
 }
 else print '<input type="hidden" name="type_import" value="'.$type.'">';
 
+if ($element == 'societe') {
+	print '<tr><td colspan="2"><em>Clientes: solo se <strong>actualizan</strong> clientes existentes, emparejados por <strong>Código de Cliente</strong>; no se crean clientes nuevos. Use el CSV generado por la exportación. Las celdas vacías no modifican el valor actual.</em></td></tr>';
+}
+
 // File type
 print '<tr><td>Tipo de CSV: </td><td>';
 print $form->selectarray('delimiter', array(',' => $langs->trans('CsvWithComma'), ';' => $langs->trans('CsvWithSemicolon')));
@@ -532,6 +561,20 @@ if ($element == 'product') {
 	print '</td></tr>';
 }
 
+// Archivo con filas no procesadas de la actualización masiva de clientes
+if ($element == 'societe') {
+	$filename_societe_view = $path_societe . 'clientes_no_procesados.csv';
+	if (file_exists($filename_societe_view)) {
+		print '<tr><td id="txtSocietesNotProcessed">Filas no procesadas</td><td>';
+		print '<a href="' . $filename_societe_view . '" download>Descargar archivo</a>';
+		print '</td></tr>';
+		print '<style>
+			#txtSocietesNotProcessed { color: red; font-weight: bold; }
+			#txtSocietesNotProcessed a { color: red; font-weight: bold; }
+		</style>';
+	}
+}
+
 print '</table>';
 print '<br><div class="center">';
 print '<input type="submit" class="button" name="bouton" value="' . $langs->trans('Import') . '">';
@@ -548,6 +591,7 @@ print '</div>';
 (function () {
 	let currencySelect = document.querySelector('#currency');
 	let rateInput = document.querySelector('#currency_rate');
+	if (!currencySelect || !rateInput) return;
 
 	currencySelect.onchange = function () {
 		var elem = (typeof this.selectedIndex === "undefined" ? window.event.srcElement : this);

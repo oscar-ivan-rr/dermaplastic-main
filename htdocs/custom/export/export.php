@@ -12,103 +12,124 @@ if($type == 2)
 {
     header("Content-disposition: attachment; filename=\"exportacion_clientes.csv\"");
     $outputBuffer = fopen("php://output", 'w');
-    $sql ="SELECT s.nom, s.name_alias,s.siren,s.code_client,s.client,s.status, s.address,s.zip,s.town as poblacion, cc.code as pais,";
-    $sql.=" cd.nom as estado,cp.libelle,s.phone,s.email,s.url,s.earlypayment_discount,ct.libelle AS credito,";
-    $sql.=" CONCAT(u.firstname,' ',u.lastname) as asignado,cpt.nbjour AS dias_credito,s.remise_client as descuento_r,";
-    $sql.=" sre.multicurrency_amount_ttc as descuento_f, s.outstanding_limit as limite_credito,s.fk_stcomm,s.tva_intra as iva,s.automatic_invoicing,";
-    $sql.=" s.rowid,formpagcfdi,usocfdi";
-    $sql.=" FROM ".MAIN_DB_PREFIX."societe AS s";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."c_typent as ct on ct.id = s.fk_typent";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."c_payment_term AS cpt ON cpt.rowid = s.cond_reglement";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."societe_rib AS sr ON sr.fk_soc = s.rowid";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."societe_commerciaux as sc ON sc.fk_soc = s.rowid";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = sc.fk_user";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."societe_remise_except as sre ON sre.fk_soc = s.rowid";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."c_paiement as cp ON cp.id = s.mode_reglement";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."c_departements as cd ON cd.rowid = s.fk_departement";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."c_country as cc ON cc.rowid = s.fk_pays";
-    $sql.=" LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields as soc ON soc.fk_object = s.rowid";
-    $sql.=" WHERE s.fournisseur = 0 GROUP BY s.rowid ORDER BY s.rowid ASC";
+
+    // Las categorías y comerciales asignados se concatenan con GROUP_CONCAT; subir el
+    // límite por si un cliente tiene muchas.
+    $db->query("SET SESSION group_concat_max_len = 100000");
+
+    // Una sola consulta: los mapeos de estatus/tipo/prospección se resuelven con CASE
+    // y las relaciones uno-a-muchos (comerciales, descuentos, categorías) se agregan en
+    // subconsultas para no multiplicar filas ni hacer una consulta por cliente.
+    $sql = "SELECT
+            IFNULL(s.nom,'') AS nom,
+            IFNULL(s.name_alias,'') AS name_alias,
+            IF(IFNULL(s.automatic_invoicing,0) = 0, 'No', 'Si') AS facturacion_automatica,
+            IFNULL(s.siren,'') AS siren,
+            IFNULL(s.code_client,'') AS code_client,
+            CASE s.client
+                WHEN 1 THEN 'Cliente'
+                WHEN 2 THEN 'Cliente potencial'
+                WHEN 3 THEN 'Cliente potencial / Cliente'
+                WHEN 0 THEN 'Ni cliente, ni cliente potencial'
+                ELSE ''
+            END AS tipo_cliente,
+            IF(s.status = 1, 'Activo', 'Suspendido') AS estatus,
+            IFNULL(s.address,'') AS address,
+            IFNULL(s.zip,'') AS zip,
+            IFNULL(s.town,'') AS poblacion,
+            IFNULL(cc.code,'') AS pais,
+            IFNULL(cd.nom,'') AS estado,
+            IFNULL(cp.libelle,'') AS tipo_pago,
+            IFNULL(s.phone,'') AS phone,
+            IFNULL(s.email,'') AS email,
+            IFNULL(s.url,'') AS url,
+            IF(IFNULL(ct.libelle,'-') = '-', '', ct.libelle) AS credito,
+            IFNULL(cpt.nbjour,'') AS dias_credito,
+            IFNULL(asig.asignado,'') AS asignado,
+            IFNULL(s.remise_client,'') AS descuento_r,
+            IFNULL(sre.descuento_f,'') AS descuento_f,
+            IFNULL(s.earlypayment_discount,'') AS earlypayment_discount,
+            IFNULL(s.outstanding_limit,'') AS limite_credito,
+            CASE s.fk_stcomm
+                WHEN 0 THEN 'Nunca contactado'
+                WHEN -1 THEN 'No contactar'
+                WHEN 1 THEN 'Para ser contactado'
+                WHEN 2 THEN 'Contacto en proceso'
+                WHEN 3 THEN 'Contacto realizado'
+                ELSE ''
+            END AS prospeccion,
+            IFNULL(s.tva_intra,'') AS iva,
+            IFNULL(cat.categorias,'') AS categorias,
+            IFNULL(soc.formpagcfdi,'') AS formpagcfdi,
+            IFNULL(soc.usocfdi,'') AS usocfdi
+        FROM ".MAIN_DB_PREFIX."societe AS s
+        LEFT JOIN ".MAIN_DB_PREFIX."c_typent AS ct ON ct.id = s.fk_typent
+        LEFT JOIN ".MAIN_DB_PREFIX."c_payment_term AS cpt ON cpt.rowid = s.cond_reglement
+        LEFT JOIN ".MAIN_DB_PREFIX."c_paiement AS cp ON cp.id = s.mode_reglement
+        LEFT JOIN ".MAIN_DB_PREFIX."c_departements AS cd ON cd.rowid = s.fk_departement
+        LEFT JOIN ".MAIN_DB_PREFIX."c_country AS cc ON cc.rowid = s.fk_pays
+        LEFT JOIN ".MAIN_DB_PREFIX."societe_extrafields AS soc ON soc.fk_object = s.rowid
+        LEFT JOIN (
+            SELECT sc.fk_soc, GROUP_CONCAT(CONCAT(u.firstname, ' ', u.lastname) SEPARATOR ';') AS asignado
+            FROM ".MAIN_DB_PREFIX."societe_commerciaux AS sc
+            INNER JOIN ".MAIN_DB_PREFIX."user AS u ON u.rowid = sc.fk_user
+            GROUP BY sc.fk_soc
+        ) AS asig ON asig.fk_soc = s.rowid
+        LEFT JOIN (
+            SELECT fk_soc, SUM(multicurrency_amount_ttc) AS descuento_f
+            FROM ".MAIN_DB_PREFIX."societe_remise_except
+            WHERE fk_facture IS NULL AND fk_facture_line IS NULL
+            GROUP BY fk_soc
+        ) AS sre ON sre.fk_soc = s.rowid
+        LEFT JOIN (
+            SELECT cs.fk_soc, GROUP_CONCAT(c.label SEPARATOR ';') AS categorias
+            FROM ".MAIN_DB_PREFIX."categorie_societe AS cs
+            INNER JOIN ".MAIN_DB_PREFIX."categorie AS c ON c.rowid = cs.fk_categorie
+            GROUP BY cs.fk_soc
+        ) AS cat ON cat.fk_soc = s.rowid
+        WHERE s.fournisseur = 0
+        ORDER BY s.rowid ASC";
+
     $resql = $db->query($sql);
 
-    if ($db->num_rows($resql) > 0) {
-        $data = array();
+    if ($resql && $db->num_rows($resql) > 0) {
         fputcsv($outputBuffer,array('Nombre','Apodo','Facturación automatica','RFC','Código de Cliente','Cliente','Estado','Dirección','Código Postal','Población','País','Provincia','Tipo de pago',
             'Telefono','eMail','Web','Tipo de Tercero','Días de crédito','Asignado al comercial','Descuento fijo (%)',
             'Descuento absoluto ($)','Descuento por Pronto pago (%)','Importe máximo de facturas pendientes','Estado de Prospección','IVA','Categoría','Pago CFDI','Uso CFDI'), ",");
-        //array_push($data,array('Clave','Estatus','Nombre','Calle','Teléfono','Clasificación','Saldo'));
         $langs->load("bills");
         $langs->load("dict");
-        while($clients = $db->fetch_object($resql))
+        while($clients = $db->fetch_array($resql))
         {
-            $x = array($clients->nom?$clients->nom:'');
-            array_push($x,$clients->name_alias?$clients->name_alias:'');
-            array_push($x,$clients->automatic_invoicing== 0?"No":"Si");
-            array_push($x,$clients->siren?$clients->siren:'');
-            array_push($x,$clients->code_client?$clients->code_client:'');
-            if($clients->client == 1)
-                array_push($x,"Cliente");
-            else if($clients->client == 2)
-                array_push($x,"Cliente potencial");
-            else if($clients->client == 3)
-                array_push($x,"Cliente potencial / Cliente");
-            else if($clients->client == 0)
-                array_push($x,"Ni cliente, ni cliente potencial");
-
-            if($clients->status == 1)
-                array_push($x,"Activo");
-            else
-                array_push($x,"Suspendido");
-            array_push($x,$clients->address?$clients->address:'');
-            array_push($x,$clients->zip?$clients->zip:'');
-            array_push($x,$clients->poblacion?$clients->poblacion:'');
-            array_push($x,$clients->pais?$clients->pais:'');
-
-            array_push($x,$clients->estado?$clients->estado:'');
-            array_push($x,$clients->libelle?$langs->trans($clients->libelle):'');
-            array_push($x,$clients->phone?$clients->phone:'');
-            array_push($x,$clients->email?$clients->email:'');
-            array_push($x,$clients->url?$clients->url:'');
-            array_push($x,$clients->credito != '-'?$clients->credito:'');
-            array_push($x,$clients->dias_credito?$clients->dias_credito:'');
-            array_push($x,$clients->asignado?$clients->asignado:'');
-            array_push($x,$clients->descuento_r?$clients->descuento_r:'');
-            array_push($x,$clients->descuento_f?$clients->descuento_f:'');
-            array_push($x,$clients->earlypayment_discount?$clients->earlypayment_discount:'');
-            array_push($x,$clients->limite_credito?$clients->limite_credito:'');
-            switch ($clients->fk_stcomm)
-            {
-                case 0: array_push($x,"Nunca contactado");
-                    break;
-                case -1: array_push($x,"No contactar");
-                    break;
-                case 1: array_push($x,"Para ser contactado");
-                    break;
-                case 2: array_push($x,"Contacto en proceso");
-                    break;
-                case 3: array_push($x,"Contacto realizado");
-                    break;
-            }
-            array_push($x,$clients->iva?$clients->iva:'');
-            //Categoria
-            $sql2 = "SELECT c.label FROM  ".MAIN_DB_PREFIX."categorie_societe as cs";
-            $sql2.= " LEFT JOIN ".MAIN_DB_PREFIX."categorie as c ON c.rowid = cs.fk_categorie";
-            $sql2.= " WHERE cs.fk_soc=".$clients->rowid;
-            $resql2 = $db->query($sql2);
-            $c='';$i=1;
-            $num_c = $db->num_rows($resql2);
-            while($cat = $db->fetch_object($resql2))
-            {
-                if($num_c == $i)
-                    $c.=$cat->label;
-                else
-                    $c.=$cat->label.";";
-                $i++;
-            }
-            array_push($x,$c != ''?$c:'');
-            array_push($x,$clients->formpagcfdi?$clients->formpagcfdi:'');
-            array_push($x,$clients->usocfdi?$clients->usocfdi:'');
-            fputcsv($outputBuffer,$x, ",");
+            fputcsv($outputBuffer, array(
+                $clients['nom'],
+                $clients['name_alias'],
+                $clients['facturacion_automatica'],
+                $clients['siren'],
+                $clients['code_client'],
+                $clients['tipo_cliente'],
+                $clients['estatus'],
+                $clients['address'],
+                $clients['zip'],
+                $clients['poblacion'],
+                $clients['pais'],
+                $clients['estado'],
+                $clients['tipo_pago'] !== '' ? $langs->trans($clients['tipo_pago']) : '',
+                $clients['phone'],
+                $clients['email'],
+                $clients['url'],
+                $clients['credito'],
+                $clients['dias_credito'],
+                $clients['asignado'],
+                $clients['descuento_r'],
+                $clients['descuento_f'],
+                $clients['earlypayment_discount'],
+                $clients['limite_credito'],
+                $clients['prospeccion'],
+                $clients['iva'],
+                $clients['categorias'],
+                $clients['formpagcfdi'],
+                $clients['usocfdi'],
+            ), ",");
         }
     }
 }
