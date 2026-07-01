@@ -861,131 +861,145 @@ if ($action == "updateprice")
     $invoice->fetch($placeid);
 }
 
-function sortByPrice($a, $b) {
-	$desc1 = 100-$a->remise_percent;
-	$pu1 = $a->total_ttc * 100 / $desc1;
+// =====================================================================
+// Campaña Julio 2026 - Despigmentantes + Categorías Complementarias
+// Detonadora obligatoria: Despigmentante.
+// Complementarias: Limpieza, Maquillajes, Solares.
+// Nivel 1 (1 cat comp) = 15%, Nivel 2 (2 cats) = 20%, Nivel 3 (3 cats) = 25%.
+// Se excluyen productos con descuento_base = 0. La promo no es acumulable.
+// Spec completa: "logica promociones julio.pdf" en la raíz del proyecto.
+// =====================================================================
+$PROMO_JULIO_CAT_DESPIGMENTANTE = 15; // TODO: ID real de la categoría "Despigmentante"
+$PROMO_JULIO_CATS_COMPLEMENTARIAS = array(
+	'limpieza'    => 21, // TODO: ID real de "Limpieza"
+	'maquillajes' => 14, // TODO: ID real de "Maquillajes"
+	'solares'     => 23, // TODO: ID real de "Solares"
+);
+$PROMO_JULIO_DISCOUNT_BY_LEVEL = array(1 => 15, 2 => 20, 3 => 25);
 
-	$desc2 = 100-$b->remise_percent;
-	$pu2 = $b->total_ttc * 100 / $desc2;
-
-	return $pu1 > $pu2;
-}
-
-function getProductCategories($fkProduct, $invoice, $db) {
+if ($placeid > 0 && $PROMO_JULIO_CAT_DESPIGMENTANTE > 0) {
 	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
-	$c = new Categorie($db);
-	return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
-}
 
-function isCategoryFound($categoryId, $invoice, $db) {
+	$promoGetCategories = function ($fkProduct) use ($db) {
+		$c = new Categorie($db);
+		return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
+	};
+
+	// Base discount using the project's existing formula (temp_discount / desc_max / customer).
+	$promoBaseDiscount = function ($fkProduct, $customerRemise) use ($db) {
+		$prod = new Product($db);
+		$prod->fetch($fkProduct);
+		if (!empty($prod->temp_discount) && $prod->temp_discount != 0) return (float) $prod->temp_discount;
+		if (!empty($prod->desc_max) && $prod->desc_max != 0) {
+			return ($prod->desc_max >= 10) ? (float) $customerRemise : (float) $prod->desc_max;
+		}
+		return 0;
+	};
+
+	$promoSetDiscount = function ($line, $discount) use ($invoice) {
+		$invoice->updateline(
+			$line->id, $line->desc, $line->subprice, $line->qty, $discount,
+			$line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx,
+			'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0,
+			$line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code,
+			$line->array_options, $line->situation_percent, $line->fk_unit
+		);
+	};
+
+	$customerRemise = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
+
+	$despig = array();
+	$comps = array('limpieza' => array(), 'maquillajes' => array(), 'solares' => array());
+	$participating = array(); // eligible lines - reset to base before recompute
+
 	foreach ($invoice->lines as $line) {
-		$categories = getProductCategories($line->fk_product, $invoice, $db);
-		if(in_array($categoryId, $categories)) {
-			return true;
+		if (empty($line->fk_product)) continue;
+		$cats = $promoGetCategories($line->fk_product);
+
+		$isDespig = in_array($PROMO_JULIO_CAT_DESPIGMENTANTE, $cats);
+		$compKey = null;
+		foreach ($PROMO_JULIO_CATS_COMPLEMENTARIAS as $key => $catId) {
+			if ($catId > 0 && in_array($catId, $cats)) { $compKey = $key; break; }
+		}
+		if (!$isDespig && $compKey === null) continue;
+
+		$base = $promoBaseDiscount($line->fk_product, $customerRemise);
+		if ($base == 0) continue; // Exclusión: sin descuento base configurado
+
+		$entry = array('line' => $line, 'price' => (float) $line->subprice, 'base' => $base);
+		$participating[] = $entry;
+		if ($isDespig) $despig[] = $entry;
+		else $comps[$compKey][] = $entry;
+	}
+
+	// Restore each eligible line to its base discount before applying promo (idempotent recompute).
+	foreach ($participating as $p) {
+		$promoSetDiscount($p['line'], $p['base']);
+	}
+
+	if (!empty($despig)) {
+		// Cheapest first within each complementary category.
+		foreach ($comps as $k => $_v) {
+			usort($comps[$k], function ($a, $b) {
+				if ($a['price'] == $b['price']) return 0;
+				return ($a['price'] < $b['price']) ? -1 : 1;
+			});
+		}
+
+		$matches = array();
+		$pending = $despig;
+
+		// Step 1: Take Nivel 3 (25%) while every complementary category still has a product.
+		while (!empty($pending)) {
+			$catsAvailable = 0;
+			foreach ($comps as $arr) if (!empty($arr)) $catsAvailable++;
+			if ($catsAvailable < 3) break;
+
+			$d = array_shift($pending);
+			$products = array($d);
+			foreach ($comps as $k => $_v) $products[] = array_shift($comps[$k]);
+			$matches[] = array('level' => 3, 'products' => $products);
+		}
+
+		// Step 2: Distribute remaining Despigmentantes.
+		if (count($pending) === 1) {
+			// Single despig left: grab cheapest product from every remaining complementary category.
+			$d = array_shift($pending);
+			$products = array($d);
+			foreach ($comps as $k => $arr) {
+				if (!empty($arr)) $products[] = array_shift($comps[$k]);
+			}
+			$level = count($products) - 1; // 1, 2 or 3
+			if ($level >= 1) $matches[] = array('level' => $level, 'products' => $products);
+		} else {
+			// Multiple despigs remain: give each one the cheapest remaining complementary (Nivel 1).
+			// This mirrors "logica promociones julio.pdf" pg 6 examples 1 & 2 where each
+			// Despigmentante gets its own Nivel 1 match instead of concentrating on one.
+			while (!empty($pending)) {
+				$cheapKey = null; $cheapPrice = null;
+				foreach ($comps as $k => $arr) {
+					if (!empty($arr) && ($cheapPrice === null || $arr[0]['price'] < $cheapPrice)) {
+						$cheapPrice = $arr[0]['price'];
+						$cheapKey = $k;
+					}
+				}
+				if ($cheapKey === null) break;
+				$d = array_shift($pending);
+				$c = array_shift($comps[$cheapKey]);
+				$matches[] = array('level' => 1, 'products' => array($d, $c));
+			}
+		}
+
+		foreach ($matches as $m) {
+			$pct = $PROMO_JULIO_DISCOUNT_BY_LEVEL[$m['level']];
+			foreach ($m['products'] as $entry) {
+				$promoSetDiscount($entry['line'], $pct);
+			}
 		}
 	}
 
-	return false;
+	$invoice->fetch($placeid);
 }
-
-function clearDiscounts($lines, $db, $invoice) {
-		$customer = new Societe($db);
-		$customer->fetch($invoice->socid);
-		foreach($lines as $line) {
-			$prod = new Product($db);
-			$prod->fetch($line->fk_product);
-			$descuento = ($prod->temp_discount != 0) ? $prod->temp_discount : (($prod->desc_max != 0) ? (($prod->desc_max >= 10) ? $customer->remise_percent : $prod->desc_max) : 0);
-			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $descuento, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
-		}
-}
-
-$applyDiscontLines = array();
-// $applyDiscontLines2 = array();
-
-foreach ($invoice->lines as $line)
-{
-	$categories = getProductCategories($line->fk_product, $invoice, $db);
-	// CAPILAR
-	if(in_array(10, $categories)) {
-		$sql='SELECT desc_max FROM '.MAIN_DB_PREFIX.'product where rowid='.$line->fk_product . " LIMIT 1";
-		$resql=$db->query($sql);
-		$opt=$db->fetch_object($resql);
-		if($opt->desc_max > 0) {
-			$applyDiscontLines[] = $line;
-		}
-	}
-		//ANTIEDAD = 9 ACNE = 8 hidratante = 18
-	// else if(in_array(18, $categories) || in_array(8, $categories) || (in_array(9, $categories))) {
-	// 	$applyDiscontLines2[] = $line;
-	// }
-}
-
-clearDiscounts($applyDiscontLines, $db, $invoice);
-// clearDiscounts($applyDiscontLines2, $db, $invoice);
-
-//APPLY CUSTOM DISCOUNT
-usort($applyDiscontLines, 'sortByPrice');
-// usort($applyDiscontLines2, 'sortByPrice');
-// foreach($applyDiscontLines as $line) {
-// 	echo $line->total_ttc . '<br/>';
-// }
-$totalLines = count($applyDiscontLines);
-$DISCOUNT = 15;
-if($totalLines >= 2) {
-	if($totalLines == 3) {
-		$DISCOUNT = 20;
-	}
-	if($totalLines >= 4) {
-		$DISCOUNT = 25;
-	}
-
-	// ENABLE MAY 26 2026
-	foreach ($applyDiscontLines as $line1) {
-		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
-	}
-}
-
-if (!empty($_SESSION['takepos_promo_discount']) && $placeid > 0) {
-    $promoDiscount = (float)$_SESSION['takepos_promo_discount'];
-    $invoice->fetch($placeid);
-    foreach ($invoice->lines as $line) {
-        $combined = min(100, $line->remise_percent + $promoDiscount);
-        $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $combined, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
-    }
-}
-// $c = min(count($applyDiscontLines), count($applyDiscontLines2));
-// $chunks = array_chunk($applyDiscontLines, 4);
-// foreach($chunks as $chunk) {
-// 	$chunkSize = count($chunk);
-// 	if($chunkSize < 3) continue;
-// 	$DISCOUNT = 20;
-// 	if($chunkSize == 4) {
-// 		$DISCOUNT = 25;
-// 	}
-// 	for ($i = 0; $i<$chunkSize; $i++)
-// 	{
-// 		$line1 = $chunk[$i];
-// 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
-// 	}
-// }
-$invoice->fetch($placeid);
-// if(count($applyDiscontLines) > 0 && count($applyDiscontLines2) > 0) {
-// 	for ($i = 0; $i<$c; $i++)
-// 	{
-// 		$DISCOUNT = 20;
-// 		$line1 = $applyDiscontLines[$i];
-// 		$line2 = $applyDiscontLines2[$i];
-// 		$categoriesLine2 = getProductCategories($line2->fk_product, $invoice, $db);
-// 		if(in_array(9, $categoriesLine2)) {
-// 			$DISCOUNT = 15;
-// 		}
-
-// 		$invoice->updateline($line1->id, $line1->desc, $line1->subprice, $line1->qty, $DISCOUNT, $line1->date_start, $line1->date_end, $line1->tva_tx, $line1->localtax1_tx, $line1->localtax2_tx, 'HT', $line1->info_bits, $line1->product_type, $line1->fk_parent_line, 0, $line1->fk_fournprice, $line1->pa_ht, $line1->label, $line1->special_code, $line1->array_options, $line1->situation_percent, $line1->fk_unit);
-// 		$invoice->updateline($line2->id, $line2->desc, $line2->subprice, $line2->qty, $DISCOUNT, $line2->date_start, $line2->date_end, $line2->tva_tx, $line2->localtax1_tx, $line2->localtax2_tx, 'HT', $line2->info_bits, $line2->product_type, $line2->fk_parent_line, 0, $line2->fk_fournprice, $line2->pa_ht, $line2->label, $line2->special_code, $line2->array_options, $line2->situation_percent, $line2->fk_unit);
-// 	}
-// }
-
-
 
 if ($action == "updatereduction")
 {
