@@ -27,6 +27,16 @@ class ImportExcel
     public $errors;
 
     /**
+     * @var array filas del CSV que no se pudieron procesar (fila original + motivo)
+     */
+    public $rows_failed;
+
+    /**
+     * @var array primera fila del CSV (títulos de columnas)
+     */
+    public $header;
+
+    /**
      * @var Template
      */
     public $template;
@@ -51,10 +61,12 @@ class ImportExcel
      */
     public function __construct($db,$type,$nameFile, $delimiter, $user, $currencyRate = 1, $currency = 'MXN')
     {
-        $this->inserts   = 0;
-        $this->updates   = 0;
-        $this->errors    = 0;
-        $this->delimiter = $delimiter;
+        $this->inserts     = 0;
+        $this->updates     = 0;
+        $this->errors      = 0;
+        $this->rows_failed = array();
+        $this->header      = array();
+        $this->delimiter   = $delimiter;
 
         //CSV
         if (false === $this->gestor = fopen($nameFile, "r"))
@@ -77,6 +89,7 @@ class ImportExcel
         setlocale(LC_ALL, 'es_MX.iso88591');
 
         $datos = fgetcsv($this->gestor, 0, $this->delimiter);
+        $this->header = $datos;
 
         $it=0;
         foreach ($datos as $data) {
@@ -149,26 +162,72 @@ class ImportExcel
     {
         $this->initColumns();
 
+        $lineNum = 1; // la línea 1 es el encabezado
         while (($register = fgetcsv($this->gestor, 1000, $this->delimiter)) !== FALSE) {
+            $lineNum++;
 
             // Asignación de propiedades
-            
+
             $this->template->setProperties($register);
+
+            // Snapshot de mensajes para detectar los que agrega esta fila
+            $msgsBefore = $this->flattenMsgs($this->template->errors);
+
             $status = $this->template->createObject();
             if ($status == 1) $this->inserts++;
             elseif ($status == 2) $this->updates++;
-            else { // TODO: Catch error
+            else {
                 $this->errors++;
             }
+
+            // Igual que la actualización masiva de clientes: errores y advertencias
+            // de la fila van al archivo de filas no procesadas.
+            $newMsgs = array_diff_key($this->flattenMsgs($this->template->errors), $msgsBefore);
+            $isError = ($status != 1 && $status != 2);
+            if ($isError || count($newMsgs) > 0) {
+                $mensaje = implode(' | ', $newMsgs);
+                if ($isError && $mensaje === '') $mensaje = 'No se pudo crear/actualizar (sin detalle)';
+                $this->rows_failed[] = array(
+                    'linea'   => $lineNum,
+                    'ref'     => isset($this->template->ref) ? trim($this->template->ref) : '',
+                    'barcode' => isset($this->template->barcode) ? trim($this->template->barcode) : '',
+                    'tipo'    => $isError ? 'error' : 'advertencia',
+                    'mensaje' => $mensaje
+                );
+            }
         }
-         
-        
+
+
 
         fclose($this->gestor);
 
         $warnings = (!empty($this->template->errors['warning'])) ? sizeof($this->template->errors['warning']) : 0;
 
-        return array('inserts' => $this->inserts, 'updates' => $this->updates, 'warnings' => $warnings, 'errors' => $this->errors, 'msgs' => $this->template->errors);
+        return array('inserts' => $this->inserts, 'updates' => $this->updates, 'warnings' => $warnings, 'errors' => $this->errors, 'msgs' => $this->template->errors, 'rows_failed' => $this->rows_failed, 'header' => $this->header);
+    }
+
+    /**
+     * flattenMsgs
+     *
+     * Aplana el array de errores/advertencias de la plantilla a
+     * clave "tipo|ref|etapa" => "mensaje" para poder comparar por fila.
+     *
+     * @param  array $errors  $template->errors
+     * @return array
+     */
+    private function flattenMsgs($errors)
+    {
+        $out = array();
+        foreach ((array) $errors as $tipo => $refs) {
+            foreach ((array) $refs as $ref => $etapas) {
+                foreach ((array) $etapas as $etapa => $occ) {
+                    $msg = isset($occ['label']) ? $occ['label'] : '';
+                    if (!empty($occ['db'])) $msg .= ' ('.$occ['db'].')';
+                    $out[$tipo.'|'.$ref.'|'.$etapa] = $msg;
+                }
+            }
+        }
+        return $out;
     }
     /**
      *	CoincidenceRef

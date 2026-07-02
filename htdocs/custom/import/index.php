@@ -50,6 +50,14 @@ if (file_exists($path_societe)) {
 	}
 }
 
+$path_product = './logs/product/notfoundimport/';
+if (file_exists($path_product)) {
+	$files = glob($path_product . '/*');
+	foreach($files as $file){
+		if(is_file($file)) unlink($file);
+	}
+}
+
 
 // Security check
 if ($element == 'product') $result = restrictedArea($user, 'produit');
@@ -113,6 +121,16 @@ if ($action == 'add') {
 					if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedProducts", $info['updates']));
 					if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningProducts", $info['warnings']), 'warnings');
 					if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedProducts", $info['errors']), 'errors');
+
+					// CSV con las filas que no se pudieron procesar (misma lógica que clientes)
+					if (!empty($info['rows_failed'])) {
+						if (!file_exists($path_product)) mkdir($path_product, 0777, true);
+						$fp = fopen($path_product . 'productos_no_procesados.csv', 'w');
+						fputcsv($fp, array('Línea', 'Ref', 'Código de barras', 'Tipo', 'Mensaje'));
+						foreach ($info['rows_failed'] as $row) fputcsv($fp, $row);
+						fclose($fp);
+						setEventMessage('Filas con problemas: '.count($info['rows_failed']).' (ver archivo de filas no procesadas)', 'warnings');
+					}
 				}
 				else{//Para proveedores
 					if ($info['inserts'] > 0) setEventMessage($langs->trans("AddedSuppliers", $info['inserts']));
@@ -559,6 +577,20 @@ if ($element == 'product') {
 	print '<tr><td>'.$langs->trans('CalPriceSell').'</td><td>';
 	print '<input type="checkbox" name="sellprice_cal" id="sellprice_cal">';
 	print '</td></tr>';
+}
+
+// Archivo con filas no procesadas de la importación de productos
+if ($element == 'product') {
+	$filename_product_view = $path_product . 'productos_no_procesados.csv';
+	if (file_exists($filename_product_view)) {
+		print '<tr><td id="txtProductsNotProcessed">Filas no procesadas</td><td>';
+		print '<a href="' . $filename_product_view . '" download>Descargar archivo</a>';
+		print '</td></tr>';
+		print '<style>
+			#txtProductsNotProcessed { color: red; font-weight: bold; }
+			#txtProductsNotProcessed a { color: red; font-weight: bold; }
+		</style>';
+	}
 }
 
 // Archivo con filas no procesadas de la actualización masiva de clientes
