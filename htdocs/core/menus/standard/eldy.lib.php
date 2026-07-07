@@ -1691,6 +1691,7 @@ function print_left_eldy_menu($db, $menu_array_before, $menu_array_after, &$tabM
 
                 // $newmenu->add("/product/stock/massstockmove.php?leftmenu=&draft=1", $langs->trans("MassStockTransferShort"), 1, $user->rights->stock->mouvement->creer);
                 if ($conf->supplier_order->enabled) $newmenu->add("/product/stock/replenish.php", $langs->trans("Replenishment"), 1, $user->rights->stock->mouvement->creer && $user->rights->fournisseur->lire);
+                $newmenu->add("/product/stock/auditoria_stock.php", $langs->trans("Auditoría stock"), 1, $user->rights->stock->lire);
 
                 // Categories for warehouses
                 if (!empty($conf->categorie->enabled))
