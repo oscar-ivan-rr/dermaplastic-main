@@ -28,6 +28,7 @@ function sendUpdateStockNotification($db, $product_id, $warehouse_id)
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // evita que la respuesta se imprima en la página
     $result = curl_exec($ch);
     curl_close($ch);
     return 0;
@@ -39,6 +40,7 @@ function sendPackId($id_orden)
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // evita que la respuesta se imprima en la página
     $result = curl_exec($ch);
     curl_close($ch);
     return 0;
@@ -55,6 +57,7 @@ function updateShopifyPrice($product_id) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // evita que la respuesta se imprima en la página
     $result = curl_exec($ch);
     //$httpcode = curl_getinfo($result, CURLINFO_HTTP_CODE);
     //var_dump($httpcode);

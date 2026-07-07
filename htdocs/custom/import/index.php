@@ -50,13 +50,9 @@ if (file_exists($path_societe)) {
 	}
 }
 
+// El log de productos NO se borra al cargar la página: se conserva hasta la
+// siguiente importación de productos para que siempre se pueda descargar.
 $path_product = './logs/product/notfoundimport/';
-if (file_exists($path_product)) {
-	$files = glob($path_product . '/*');
-	foreach($files as $file){
-		if(is_file($file)) unlink($file);
-	}
-}
 
 
 // Security check
@@ -121,6 +117,13 @@ if ($action == 'add') {
 					if ($info['updates'] > 0) setEventMessage($langs->trans("UpdatedProducts", $info['updates']));
 					if ($info['warnings'] > 0) setEventMessage($langs->trans("WarningProducts", $info['warnings']), 'warnings');
 					if ($info['errors'] > 0) setEventMessage($langs->trans("ErrorImportedProducts", $info['errors']), 'errors');
+
+					// Limpiar el log de la importación anterior; solo queda el de esta corrida
+					if (file_exists($path_product)) {
+						foreach (glob($path_product . '/*') as $file) {
+							if (is_file($file)) unlink($file);
+						}
+					}
 
 					// CSV con las filas que no se pudieron procesar (misma lógica que clientes)
 					if (!empty($info['rows_failed'])) {
@@ -579,11 +582,11 @@ if ($element == 'product') {
 	print '</td></tr>';
 }
 
-// Archivo con filas no procesadas de la importación de productos
+// Archivo con filas no procesadas de la última importación de productos
 if ($element == 'product') {
 	$filename_product_view = $path_product . 'productos_no_procesados.csv';
 	if (file_exists($filename_product_view)) {
-		print '<tr><td id="txtProductsNotProcessed">Filas no procesadas</td><td>';
+		print '<tr><td id="txtProductsNotProcessed">Filas no procesadas (última importación: '.dol_print_date(filemtime($filename_product_view), 'dayhour').')</td><td>';
 		print '<a href="' . $filename_product_view . '" download>Descargar archivo</a>';
 		print '</td></tr>';
 		print '<style>
