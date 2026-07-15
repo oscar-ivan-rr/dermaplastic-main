@@ -296,20 +296,11 @@ class PDFDraftMovement extends ModelePDFMovement
             $num = count($object);
             $i = 0;
             $nblines = $num;
-            $printed = array();
             $totalneg = 0;
             $totalposi = 0;
             foreach($object as $objp)
             {
                 // Multilangs
-                if (
-                    isset($printed[$objp->code])
-                    && isset($printed[$objp->code][$objp->product_id])
-                    && in_array(abs($objp->qty), $printed[$objp->code][$objp->product_id])
-                ) {
-                    continue;
-                }
-                $printed[$objp->code][$objp->product_id][] = abs($objp->qty);
                 if (!empty($conf->global->MAIN_MULTILANGS)) // si l'option est active
                 {
                     $sql = "SELECT label";

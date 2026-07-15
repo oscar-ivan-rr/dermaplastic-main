@@ -289,20 +289,29 @@ elseif ($action == 'sign_doc')
 		{
 			if (isset($rows[$row->code][$row->product_id]))
 			{
+				// Un mismo producto puede venir en varias lineas (p.ej. dos lotes o dos
+				// registros del mismo lote): se acumula la cantidad en vez de sobrescribirla
+				$curr = $rows[$row->code][$row->product_id];
 				if ($row->qty<0)
 				{
-					$rows[$row->code][$row->product_id]->entrepot_source_id = $row->entrepot_source_id;
-					$rows[$row->code][$row->product_id]->entrepot_source_ref = $row->entrepot_source_ref;
+					$curr->entrepot_source_id = $row->entrepot_source_id;
+					$curr->entrepot_source_ref = $row->entrepot_source_ref;
+					$curr->qty_neg += $row->qty;
 				}
 				else
 				{
-					$rows[$row->code][$row->product_id]->entrepot_target_id = $row->entrepot_source_id;
-					$rows[$row->code][$row->product_id]->entrepot_target_ref = $row->entrepot_source_ref;
+					$curr->entrepot_target_id = $row->entrepot_source_id;
+					$curr->entrepot_target_ref = $row->entrepot_source_ref;
+					$curr->qty_pos += $row->qty;
 				}
+				// Se muestra el total de salidas si las hay; si no, el de entradas
+				$curr->qty = $curr->qty_neg < 0 ? $curr->qty_neg : $curr->qty_pos;
 			}
 			else
 			{
 				$rows[$row->code][$row->product_id] = $row;
+				$row->qty_neg = $row->qty < 0 ? $row->qty : 0;
+				$row->qty_pos = $row->qty > 0 ? $row->qty : 0;
 				if ($row->qty>0)
 				{
 					$rows[$row->code][$row->product_id]->entrepot_target_id = $row->entrepot_source_id;

@@ -385,6 +385,20 @@ if ($action == 'createmovements') {
 		$product = new Product($db);
 		$lote = new Productlot($db);
 
+		// Consolida lineas duplicadas del mismo producto/lote/almacenes para que cada
+		// combinacion genere un solo movimiento y un solo borrador (si quedan separadas,
+		// el ticket y la recepcion las tratan como una sola pieza)
+		$consolidated = array();
+		foreach ($listofdata as $val) {
+			$k = $val['id_product'] . '-' . $val['id_sw'] . '-' . $val['id_tw'] . '-' . $val['batch'];
+			if (isset($consolidated[$k])) {
+				$consolidated[$k]['qty'] += $val['qty'];
+			} else {
+				$consolidated[$k] = $val;
+			}
+		}
+		$listofdata = array_values($consolidated);
+
 		foreach ($listofdata as $val) {
 			$id_product = $val['id_product'];
 			$id_sw = $val['id_sw'];
