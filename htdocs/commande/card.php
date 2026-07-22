@@ -161,7 +161,7 @@ if (empty($reshook))
 			$result = curl_exec($ch);
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			header('Content-Type: application/pdf');
-			header('Content-Disposition: attachment; filename="Guia-Coppel-'. $orderId .'".pdf');
+			header('Content-Disposition: attachment; filename="Guia-Coppel-'. $orderId .'.pdf"');
 			header('Content-Length: ' . strlen($result));
 			header('Cache-Control: private, max-age=0, must-revalidate');
 			header('Pragma: public');
@@ -186,7 +186,7 @@ if (empty($reshook))
 			$result = curl_exec($ch);
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			header('Content-Type: application/pdf');
-			header('Content-Disposition: attachment; filename="Guia-Walmart-'. $orderId .'".pdf');
+			header('Content-Disposition: attachment; filename="Guia-Walmart-'. $orderId .'.pdf"');
 			header('Content-Length: ' . strlen($result));
 			header('Cache-Control: private, max-age=0, must-revalidate');
 			header('Pragma: public');
@@ -210,7 +210,7 @@ if (empty($reshook))
 			$result = curl_exec($ch);
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			header('Content-Type: application/pdf');
-			header('Content-Disposition: attachment; filename="Guia-Liverpool-'. $orderId .'".pdf');
+			header('Content-Disposition: attachment; filename="Guia-Liverpool-'. $orderId .'.pdf"');
 			header('Content-Length: ' . strlen($result));
 			header('Cache-Control: private, max-age=0, must-revalidate');
 			header('Pragma: public');
