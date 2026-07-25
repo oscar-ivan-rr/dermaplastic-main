@@ -387,10 +387,16 @@ if ($action == 'createmovements') {
 
 		// Consolida lineas duplicadas del mismo producto/lote/almacenes para que cada
 		// combinacion genere un solo movimiento y un solo borrador (si quedan separadas,
-		// el ticket y la recepcion las tratan como una sola pieza)
+		// el ticket y la recepcion las tratan como una sola pieza).
+		// La clave usa el NOMBRE del lote y no su rowid: llx_product_lot puede tener
+		// filas duplicadas del mismo lote y cada escaneo puede resolver un rowid distinto
 		$consolidated = array();
 		foreach ($listofdata as $val) {
-			$k = $val['id_product'] . '-' . $val['id_sw'] . '-' . $val['id_tw'] . '-' . $val['batch'];
+			$lotname = $val['batch'];
+			if ($val['batch'] > 0 && $lote->fetch($val['batch']) > 0) {
+				$lotname = $lote->batch;
+			}
+			$k = $val['id_product'] . '-' . $val['id_sw'] . '-' . $val['id_tw'] . '-' . $lotname;
 			if (isset($consolidated[$k])) {
 				$consolidated[$k]['qty'] += $val['qty'];
 			} else {

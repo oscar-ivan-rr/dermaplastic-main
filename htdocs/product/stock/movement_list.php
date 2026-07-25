@@ -220,13 +220,31 @@ if($action == 'printpdfcorrection'){
         $sql .= " AND m.inventorycode = '". $codetosearch."'";
         $resql = $db->query($sql);
         $masivecorrection = array();
+        $groupedlines = array();
         if($resql) {
             while ($obm = $db->fetch_object($resql)) {
+                // Un producto puede venir en varias lineas (dos lotes o dos registros del
+                // mismo lote): se acumula por producto para imprimir un solo renglon.
+                // Salidas y entradas se acumulan por separado (una transferencia completada
+                // tiene ambas con el mismo codigo y sumarlas directo daria 0); se muestra
+                // el total de salidas si las hay, si no el de entradas
+                if (isset($groupedlines[$obm->product_id])) {
+                    $line = $groupedlines[$obm->product_id];
+                    if ($obm->qty < 0) {
+                        $line->qty_neg += $obm->qty;
+                    } else {
+                        $line->qty_pos += $obm->qty;
+                    }
+                    $line->qty = $line->qty_neg < 0 ? $line->qty_neg : $line->qty_pos;
+                    continue;
+                }
                 $line = new stdClass();
                 $line->product_ref = $obm->product_ref;
                 $line->product_label = $obm->product_label;
                 $line->product_id = $obm->product_id;
                 $line->qty = $obm->qty;
+                $line->qty_neg = $obm->qty < 0 ? $obm->qty : 0;
+                $line->qty_pos = $obm->qty > 0 ? $obm->qty : 0;
                 $line->datem = $obm->datem;
                 $line->entrepot_source_ref = $obm->entrepot_source_ref;
                 $line->user_firstname = $obm->user_firstname;
@@ -240,6 +258,7 @@ if($action == 'printpdfcorrection'){
                 }
                 $line->label = $obm->label;
                 $line->code = $obm->code;
+                $groupedlines[$obm->product_id] = $line;
                 array_push($masivecorrection, $line);
             }
 
