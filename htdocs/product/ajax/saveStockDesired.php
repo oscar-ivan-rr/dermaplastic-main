@@ -2,6 +2,11 @@
 
 require '../../main.inc.php';
 
+if (empty($user->rights->stock->edit_minmax)) {
+	echo json_encode(array('result' => false, 'msj' => 'Sin permiso para editar mínimo/máximo'));
+	exit;
+}
+
 $id_product = GETPOST('id', 'int');
 $stock_desired = GETPOST('stock_desired', 'int');
 $id_entrepot = GETPOST('id_entrepot', 'int');

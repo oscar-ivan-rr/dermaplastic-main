@@ -2,6 +2,11 @@
 
 require '../../main.inc.php';
 
+if (empty($user->rights->stock->edit_reorder)) {
+	echo json_encode(array('result' => false, 'msj' => 'Sin permiso para editar reorden'));
+	exit;
+}
+
 $id_product = GETPOST('id', 'int');
 $stock_alert = GETPOST('stock_alert', 'int');
 $id_entrepot = GETPOST('id_entrepot', 'int');

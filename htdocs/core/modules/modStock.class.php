@@ -148,6 +148,22 @@ class modStock extends DolibarrModules
 		$this->rights[4][4] = 'mouvement';
 		$this->rights[4][5] = 'creer';
 
+		// Editar mínimo/máximo por almacén (sin permiso = solo lectura)
+		$this->rights[10][0] = 5000005;
+		$this->rights[10][1] = 'Editar stock mínimo y máximo';
+		$this->rights[10][2] = 'w';
+		$this->rights[10][3] = 0;
+		$this->rights[10][4] = 'edit_minmax';
+		$this->rights[10][5] = '';
+
+		// Editar reorden por almacén (sin permiso = solo lectura)
+		$this->rights[11][0] = 5000006;
+		$this->rights[11][1] = 'Editar stock de reorden';
+		$this->rights[11][2] = 'w';
+		$this->rights[11][3] = 0;
+		$this->rights[11][4] = 'edit_reorder';
+		$this->rights[11][5] = '';
+
 		if ($conf->global->MAIN_FEATURES_LEVEL >= 2)
 		{
     		$this->rights[5][0] = 1011;

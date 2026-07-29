@@ -169,7 +169,7 @@ if ($action == 'delete_productstockwarehouse' && !empty($user->rights->produit->
 }
 
 // Set stock limit
-if ($action == 'setseuil_stock_alerte' && !empty($user->rights->produit->creer))
+if ($action == 'setseuil_stock_alerte' && !empty($user->rights->stock->edit_reorder))
 {
     $object = new Product($db);
     $result = $object->fetch($id);
@@ -220,7 +220,7 @@ if ($action == 'setdesiredstockma' && !empty($user->rights->produit->creer))
     $action = '';
 }
 // Set desired stock
-if ($action == 'setdesiredstock' && !empty($user->rights->produit->creer))
+if ($action == 'setdesiredstock' && !empty($user->rights->stock->edit_minmax))
 {
     $object = new Product($db);
     $result = $object->fetch($id);
@@ -690,14 +690,14 @@ if ($id > 0 || $ref)
 			// print '<tr><td>';
 			// $form->editfieldkey($form->textwithpicto($langs->trans("DesiredStockGnral"), $langs->trans("DesiredStockDesc"), 1), 'desiredstock', $object->desiredstock, $object, $user->rights->produit->creer);
 			print '<td>';
-			print $form->editfieldval("DesiredStock", 'desiredstock', $object->desiredstock, $object, $user->rights->produit->creer, 'string');
+			print $form->editfieldval("DesiredStock", 'desiredstock', $object->desiredstock, $object, !empty($user->rights->stock->edit_minmax), 'string');
 			print '</td></tr>';
 
 			// Stock alert threshold
 			print '<tr><td>'.$langs->trans("StockLimitGnral").'</td>';
 			print '<td>';
 			// print '<tr><td>'.$form->editfieldkey($form->textwithpicto($langs->trans("StockLimitGnral"), $langs->trans("StockLimitDesc"), 1), 'seuil_stock_alerte', $object->seuil_stock_alerte, $object, $user->rights->produit->creer).'</td><td>';
-			print $form->editfieldval("StockLimit", 'seuil_stock_alerte', $object->seuil_stock_alerte, $object, $user->rights->produit->creer, 'string');
+			print $form->editfieldval("StockLimit", 'seuil_stock_alerte', $object->seuil_stock_alerte, $object, !empty($user->rights->stock->edit_reorder), 'string');
 			print '</td></tr>';
 
 			// Hook formObject
@@ -1289,9 +1289,11 @@ if (!$variants) {
 		print '<td class="right">';
 		print '<input type="text" id="stock_desired_'.$entrepotstatic->id.'" value="'.$stock_desired.'" style="display:none; width: 50px;" />';
 		print '<span id="stock_desired_span_'.$entrepotstatic->id.'">'.($stock_desired ? $stock_desired : 0).'</span>';
-		print '<a href="javascript:void(0);" onclick="editStockDesired('.$entrepotstatic->id.')" id="edit_stock_desired_'.$entrepotstatic->id.'" style="display:inline-block; margin-left: 5px;"><i class="fa fa-pencil"></i></a>';
-		print '<a href="javascript:void(0);" onclick="saveStockDesired('.$entrepotstatic->id.')" id="save_stock_desired_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-save"></i></a>';
-		print '<a href="javascript:void(0);" onclick="cancelStockDesired('.$entrepotstatic->id.')" id="cancel_stock_desired_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-times"></i></a>';
+		if (!empty($user->rights->stock->edit_minmax)) {
+			print '<a href="javascript:void(0);" onclick="editStockDesired('.$entrepotstatic->id.')" id="edit_stock_desired_'.$entrepotstatic->id.'" style="display:inline-block; margin-left: 5px;"><i class="fa fa-pencil"></i></a>';
+			print '<a href="javascript:void(0);" onclick="saveStockDesired('.$entrepotstatic->id.')" id="save_stock_desired_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-save"></i></a>';
+			print '<a href="javascript:void(0);" onclick="cancelStockDesired('.$entrepotstatic->id.')" id="cancel_stock_desired_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-times"></i></a>';
+		}
 		print '</td>';
 
 		// creamos la funcionalidad en js para editar el valor del stock deseado
@@ -1353,9 +1355,11 @@ if (!$variants) {
 		print '<td class="right">';
 		print '<input type="text" id="stock_alert_'.$entrepotstatic->id.'" value="'.$stock_alert.'" style="display:none; width: 50px;" />';
 		print '<span id="stock_alert_span_'.$entrepotstatic->id.'">'.($stock_alert ? $stock_alert : 0).'</span>';
-		print '<a href="javascript:void(0);" onclick="editStockAlert('.$entrepotstatic->id.')" id="edit_stock_alert_'.$entrepotstatic->id.'" style="display:inline-block; margin-left: 5px;"><i class="fa fa-pencil"></i></a>';
-		print '<a href="javascript:void(0);" onclick="saveStockAlert('.$entrepotstatic->id.')" id="save_stock_alert_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-save"></i></a>';
-		print '<a href="javascript:void(0);" onclick="cancelStockAlert('.$entrepotstatic->id.')" id="cancel_stock_alert_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-times"></i></a>';
+		if (!empty($user->rights->stock->edit_reorder)) {
+			print '<a href="javascript:void(0);" onclick="editStockAlert('.$entrepotstatic->id.')" id="edit_stock_alert_'.$entrepotstatic->id.'" style="display:inline-block; margin-left: 5px;"><i class="fa fa-pencil"></i></a>';
+			print '<a href="javascript:void(0);" onclick="saveStockAlert('.$entrepotstatic->id.')" id="save_stock_alert_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-save"></i></a>';
+			print '<a href="javascript:void(0);" onclick="cancelStockAlert('.$entrepotstatic->id.')" id="cancel_stock_alert_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-times"></i></a>';
+		}
 		print '</td>';
 
 		// creamos la funcionalidad en js para editar el valor del stock alert
@@ -1414,9 +1418,11 @@ if (!$variants) {
 		print '<td class="right">';
 		print '<input type="text" id="stock_max_'.$entrepotstatic->id.'" value="'.$stock_max.'" style="display:none; width: 50px;" />';
 		print '<span id="stock_max_span_'.$entrepotstatic->id.'">'.($stock_max ? $stock_max : 0).'</span>';
-		print '<a href="javascript:void(0);" onclick="editStockMax('.$entrepotstatic->id.')" id="edit_stock_max_'.$entrepotstatic->id.'" style="display:inline-block; margin-left: 5px;"><i class="fa fa-pencil"></i></a>';
-		print '<a href="javascript:void(0);" onclick="saveStockMax('.$entrepotstatic->id.')" id="save_stock_max_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-save"></i></a>';
-		print '<a href="javascript:void(0);" onclick="cancelStockMax('.$entrepotstatic->id.')" id="cancel_stock_max_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-times"></i></a>';
+		if (!empty($user->rights->stock->edit_minmax)) {
+			print '<a href="javascript:void(0);" onclick="editStockMax('.$entrepotstatic->id.')" id="edit_stock_max_'.$entrepotstatic->id.'" style="display:inline-block; margin-left: 5px;"><i class="fa fa-pencil"></i></a>';
+			print '<a href="javascript:void(0);" onclick="saveStockMax('.$entrepotstatic->id.')" id="save_stock_max_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-save"></i></a>';
+			print '<a href="javascript:void(0);" onclick="cancelStockMax('.$entrepotstatic->id.')" id="cancel_stock_max_'.$entrepotstatic->id.'" style="display:none; margin-left: 5px;"><i class="fa fa-times"></i></a>';
+		}
 		print '</td>';
 
 		// creamos la funcionalidad en js para editar el valor del stock max

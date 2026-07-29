@@ -45,9 +45,9 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/order.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 define("BACKEND_URL", getenv('BACKEND_PLATFORM_URL'));
-define("COPPEL_API_KEY", getenv('VALID_API_KEY_ERP'));
-define("LIVERPOOL_API_KEY", getenv('VALID_API_KEY_ERP'));
-define("WALMART_API_KEY", getenv('VALID_API_KEY_ERP'));
+define("COPPEL_API_KEY", getenv('COPPEL_API_KEY') ?: getenv('VALID_API_KEY_ERP'));
+define("LIVERPOOL_API_KEY", getenv('LIVERPOOL_API_KEY') ?: getenv('VALID_API_KEY_ERP'));
+define("WALMART_API_KEY", getenv('WALMART_API_KEY') ?: getenv('VALID_API_KEY_ERP'));
 if (!empty($conf->propal->enabled)) {
 	require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 }
@@ -196,6 +196,37 @@ if (empty($reshook))
 				echo "Error {$code}: {$body}";
 			}
 			curl_close($ch);
+		}
+
+		/**
+		 * Notifica a la plataforma que un pedido Walmart ya fue despachado.
+		 * La plataforma arma el payload y confirma el envío ante Walmart.
+		 * @see notificacion-walmart.pdf
+		 * @param string $purchaseOrderId pack_id / purchase order de Walmart
+		 * @return array{ok:bool,http_code:int,response:string}
+		 */
+		function notifyWalmartShipping($purchaseOrderId) {
+			$url = rtrim(BACKEND_URL, '/').'/api/walmart/erp/orders/'.urlencode($purchaseOrderId).'/shipping';
+			$ch = curl_init($url);
+			curl_setopt_array($ch, array(
+				CURLOPT_POST => true,
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_HTTPHEADER => array(
+					'api-key: '.WALMART_API_KEY,
+				),
+			));
+			$response = curl_exec($ch);
+			$httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			$curlError = curl_error($ch);
+			curl_close($ch);
+			if ($response === false) {
+				$response = $curlError;
+			}
+			return array(
+				'ok' => ($httpCode === 200),
+				'http_code' => $httpCode,
+				'response' => (string) $response,
+			);
 		}
 		function printLiverpoolShippingLabel($orderId) {
 			$url = BACKEND_URL . "api/liverpool/erp/orders/$orderId/shipping_label";
@@ -1382,20 +1413,42 @@ if (empty($reshook))
 		}
 
 		if($result1 == 0 && $result > 0 ){
-			$url = BACKEND_URL."api/anymarket/orders/".$object->pack_id;
-			$ch = curl_init();
-    		
-			curl_setopt($ch, CURLOPT_URL, $url);
-    		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT", json_encode([
-				'status' => 'PAID_WAITING_DELIVERY'
-			]));
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    		
-			curl_exec($ch);
-    		
-			curl_close($ch);
-			
-			setEventMessages("Pedido clasificado como enviado", null);
+			$object->fetch_thirdparty();
+			$thirdpartyName = !empty($object->thirdparty->name) ? $object->thirdparty->name : '';
+
+			// Pedidos Walmart: notificar despacho a la plataforma (sin body; solo purchaseOrderId + api-key)
+			if ($thirdpartyName == 'Walmart' && !empty($object->pack_id)) {
+				$notify = notifyWalmartShipping($object->pack_id);
+				if ($notify['ok']) {
+					setEventMessages("Pedido clasificado como enviado. Notificación Walmart confirmada.", null);
+				} else {
+					$msg = "Pedido clasificado como enviado, pero falló la notificación Walmart (HTTP ".$notify['http_code'].")";
+					$decoded = json_decode($notify['response'], true);
+					if (!empty($decoded['message'])) {
+						$msg .= ': '.$decoded['message'];
+					} elseif (!empty($notify['response'])) {
+						$msg .= ': '.$notify['response'];
+					}
+					setEventMessages($msg, null, 'warnings');
+				}
+			} elseif (!empty($object->pack_id)) {
+				$url = BACKEND_URL."api/anymarket/orders/".$object->pack_id;
+				$ch = curl_init();
+
+				curl_setopt($ch, CURLOPT_URL, $url);
+				curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT", json_encode([
+					'status' => 'PAID_WAITING_DELIVERY'
+				]));
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+				curl_exec($ch);
+
+				curl_close($ch);
+
+				setEventMessages("Pedido clasificado como enviado", null);
+			} else {
+				setEventMessages("Pedido clasificado como enviado", null);
+			}
 		}
 	}
 
