@@ -862,31 +862,21 @@ if ($action == "updateprice")
 }
 
 // =====================================================================
-// Campaña Julio 2026 - Despigmentantes + Categorías Complementarias
-// Detonadora obligatoria: Despigmentante.
-// Complementarias: Limpieza, Maquillajes, Solares.
-// Nivel 1 (1 cat comp) = 15%, Nivel 2 (2 cats) = 20%, Nivel 3 (3 cats) = 25%.
-// Se excluyen productos con descuento_base = 0. La promo no es acumulable.
-// Spec completa: "logica promociones julio.pdf" en la raíz del proyecto.
+// Promo Capilar - descuento por volumen en categoría CAPILAR
+// 2 productos = 15%, 3 productos = 20%, 4 o más = 25%.
+// Se cuenta la cantidad total (qty) de líneas de la categoría.
 // =====================================================================
-$PROMO_JULIO_CAT_DESPIGMENTANTE = 15; // TODO: ID real de la categoría "Despigmentante"
-$PROMO_JULIO_CATS_COMPLEMENTARIAS = array(
-	'limpieza'    => 21, // TODO: ID real de "Limpieza"
-	'maquillajes' => 14, // TODO: ID real de "Maquillajes"
-	'solares'     => 23, // TODO: ID real de "Solares"
-);
-$PROMO_JULIO_DISCOUNT_BY_LEVEL = array(1 => 15, 2 => 20, 3 => 25);
+$PROMO_CAPILAR_CAT = 10; // ID categoría CAPILAR
 
-if ($placeid > 0 && $PROMO_JULIO_CAT_DESPIGMENTANTE > 0) {
+if ($placeid > 0 && $PROMO_CAPILAR_CAT > 0) {
 	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 
-	$promoGetCategories = function ($fkProduct) use ($db) {
+	$capilarGetCategories = function ($fkProduct) use ($db) {
 		$c = new Categorie($db);
 		return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
 	};
 
-	// Base discount using the project's existing formula (temp_discount / desc_max / customer).
-	$promoBaseDiscount = function ($fkProduct, $customerRemise) use ($db) {
+	$capilarBaseDiscount = function ($fkProduct, $customerRemise) use ($db) {
 		$prod = new Product($db);
 		$prod->fetch($fkProduct);
 		if (!empty($prod->temp_discount) && $prod->temp_discount != 0) return (float) $prod->temp_discount;
@@ -896,7 +886,7 @@ if ($placeid > 0 && $PROMO_JULIO_CAT_DESPIGMENTANTE > 0) {
 		return 0;
 	};
 
-	$promoSetDiscount = function ($line, $discount) use ($invoice) {
+	$capilarSetDiscount = function ($line, $discount) use ($invoice) {
 		$invoice->updateline(
 			$line->id, $line->desc, $line->subprice, $line->qty, $discount,
 			$line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx,
@@ -906,99 +896,41 @@ if ($placeid > 0 && $PROMO_JULIO_CAT_DESPIGMENTANTE > 0) {
 		);
 	};
 
-	$customerRemise = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
+	$customerRemiseCapilar = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
 
-	$despig = array();
-	$comps = array('limpieza' => array(), 'maquillajes' => array(), 'solares' => array());
-	$participating = array(); // eligible lines - reset to base before recompute
+	$capilarLines = array();
+	$capilarQty = 0;
 
 	foreach ($invoice->lines as $line) {
 		if (empty($line->fk_product)) continue;
-		$cats = $promoGetCategories($line->fk_product);
+		$cats = $capilarGetCategories($line->fk_product);
+		if (!in_array($PROMO_CAPILAR_CAT, $cats)) continue;
 
-		$isDespig = in_array($PROMO_JULIO_CAT_DESPIGMENTANTE, $cats);
-		$compKey = null;
-		foreach ($PROMO_JULIO_CATS_COMPLEMENTARIAS as $key => $catId) {
-			if ($catId > 0 && in_array($catId, $cats)) { $compKey = $key; break; }
-		}
-		if (!$isDespig && $compKey === null) continue;
-
-		$base = $promoBaseDiscount($line->fk_product, $customerRemise);
-		if ($base == 0) continue; // Exclusión: sin descuento base configurado
-
-		$entry = array('line' => $line, 'price' => (float) $line->subprice, 'base' => $base);
-		$participating[] = $entry;
-		if ($isDespig) $despig[] = $entry;
-		else $comps[$compKey][] = $entry;
+		$base = $capilarBaseDiscount($line->fk_product, $customerRemiseCapilar);
+		$capilarLines[] = array('line' => $line, 'base' => $base);
+		$capilarQty += (float) $line->qty;
 	}
 
-	// Restore each eligible line to its base discount before applying promo (idempotent recompute).
-	foreach ($participating as $p) {
-		$promoSetDiscount($p['line'], $p['base']);
+	// Restore base discount first (idempotent recompute).
+	foreach ($capilarLines as $entry) {
+		$capilarSetDiscount($entry['line'], $entry['base']);
 	}
 
-	if (!empty($despig)) {
-		// Cheapest first within each complementary category.
-		foreach ($comps as $k => $_v) {
-			usort($comps[$k], function ($a, $b) {
-				if ($a['price'] == $b['price']) return 0;
-				return ($a['price'] < $b['price']) ? -1 : 1;
-			});
-		}
+	$promoPct = 0;
+	if ($capilarQty >= 4) $promoPct = 25;
+	elseif ($capilarQty >= 3) $promoPct = 20;
+	elseif ($capilarQty >= 2) $promoPct = 15;
 
-		$matches = array();
-		$pending = $despig;
-
-		// Step 1: Take Nivel 3 (25%) while every complementary category still has a product.
-		while (!empty($pending)) {
-			$catsAvailable = 0;
-			foreach ($comps as $arr) if (!empty($arr)) $catsAvailable++;
-			if ($catsAvailable < 3) break;
-
-			$d = array_shift($pending);
-			$products = array($d);
-			foreach ($comps as $k => $_v) $products[] = array_shift($comps[$k]);
-			$matches[] = array('level' => 3, 'products' => $products);
-		}
-
-		// Step 2: Distribute remaining Despigmentantes.
-		if (count($pending) === 1) {
-			// Single despig left: grab cheapest product from every remaining complementary category.
-			$d = array_shift($pending);
-			$products = array($d);
-			foreach ($comps as $k => $arr) {
-				if (!empty($arr)) $products[] = array_shift($comps[$k]);
-			}
-			$level = count($products) - 1; // 1, 2 or 3
-			if ($level >= 1) $matches[] = array('level' => $level, 'products' => $products);
-		} else {
-			// Multiple despigs remain: give each one the cheapest remaining complementary (Nivel 1).
-			// This mirrors "logica promociones julio.pdf" pg 6 examples 1 & 2 where each
-			// Despigmentante gets its own Nivel 1 match instead of concentrating on one.
-			while (!empty($pending)) {
-				$cheapKey = null; $cheapPrice = null;
-				foreach ($comps as $k => $arr) {
-					if (!empty($arr) && ($cheapPrice === null || $arr[0]['price'] < $cheapPrice)) {
-						$cheapPrice = $arr[0]['price'];
-						$cheapKey = $k;
-					}
-				}
-				if ($cheapKey === null) break;
-				$d = array_shift($pending);
-				$c = array_shift($comps[$cheapKey]);
-				$matches[] = array('level' => 1, 'products' => array($d, $c));
-			}
-		}
-
-		foreach ($matches as $m) {
-			$pct = $PROMO_JULIO_DISCOUNT_BY_LEVEL[$m['level']];
-			foreach ($m['products'] as $entry) {
-				$promoSetDiscount($entry['line'], $pct);
-			}
+	if ($promoPct > 0) {
+		foreach ($capilarLines as $entry) {
+			// No reducir un descuento base ya mayor que la promo.
+			$capilarSetDiscount($entry['line'], max($entry['base'], $promoPct));
 		}
 	}
 
-	$invoice->fetch($placeid);
+	if (!empty($capilarLines)) {
+		$invoice->fetch($placeid);
+	}
 }
 
 if ($action == "updatereduction")
