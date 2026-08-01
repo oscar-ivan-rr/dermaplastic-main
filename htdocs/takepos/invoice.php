@@ -862,8 +862,8 @@ if ($action == "updateprice")
 }
 
 // =====================================================================
-// Promo Agosto - combo ACNE + CAPILAR (requiere >=1 ACNE)
-// 1 Capilar = 10%, 2 = 15%, 3 = 20%, 4+ = 25%.
+// Promo Agosto - combo ACNE + CAPILAR (requiere >=1 ACNE y >=2 CAPILAR)
+// 2 Capilar = 15%, 3 = 20%, 4+ = 25%.
 // El % aplica a líneas ACNE y CAPILAR. Se cuenta qty total.
 // =====================================================================
 $PROMO_CAPILAR_CAT = 10; // ID categoría CAPILAR
@@ -932,11 +932,10 @@ if ($placeid > 0 && $PROMO_CAPILAR_CAT > 0 && $PROMO_ACNE_CAT > 0) {
 	}
 
 	$promoPct = 0;
-	if ($acneQty >= 1 && $capilarQty >= 1) {
+	if ($acneQty >= 1 && $capilarQty >= 2) {
 		if ($capilarQty >= 4) $promoPct = 25;
 		elseif ($capilarQty >= 3) $promoPct = 20;
-		elseif ($capilarQty >= 2) $promoPct = 15;
-		else $promoPct = 10;
+		else $promoPct = 15;
 	}
 
 	if ($promoPct > 0) {
