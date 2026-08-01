@@ -862,21 +862,22 @@ if ($action == "updateprice")
 }
 
 // =====================================================================
-// Promo Capilar - descuento por volumen en categoría CAPILAR
-// 2 productos = 15%, 3 productos = 20%, 4 o más = 25%.
-// Se cuenta la cantidad total (qty) de líneas de la categoría.
+// Promo Agosto - combo ACNE + CAPILAR (requiere >=1 ACNE)
+// 1 Capilar = 10%, 2 = 15%, 3 = 20%, 4+ = 25%.
+// El % aplica a líneas ACNE y CAPILAR. Se cuenta qty total.
 // =====================================================================
 $PROMO_CAPILAR_CAT = 10; // ID categoría CAPILAR
+$PROMO_ACNE_CAT = 8;     // ID categoría ACNE
 
-if ($placeid > 0 && $PROMO_CAPILAR_CAT > 0) {
+if ($placeid > 0 && $PROMO_CAPILAR_CAT > 0 && $PROMO_ACNE_CAT > 0) {
 	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 
-	$capilarGetCategories = function ($fkProduct) use ($db) {
+	$promoGetCategories = function ($fkProduct) use ($db) {
 		$c = new Categorie($db);
 		return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
 	};
 
-	$capilarBaseDiscount = function ($fkProduct, $customerRemise) use ($db) {
+	$promoBaseDiscount = function ($fkProduct, $customerRemise) use ($db) {
 		$prod = new Product($db);
 		$prod->fetch($fkProduct);
 		if (!empty($prod->temp_discount) && $prod->temp_discount != 0) return (float) $prod->temp_discount;
@@ -886,7 +887,7 @@ if ($placeid > 0 && $PROMO_CAPILAR_CAT > 0) {
 		return 0;
 	};
 
-	$capilarSetDiscount = function ($line, $discount) use ($invoice) {
+	$promoSetDiscount = function ($line, $discount) use ($invoice) {
 		$invoice->updateline(
 			$line->id, $line->desc, $line->subprice, $line->qty, $discount,
 			$line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx,
@@ -896,39 +897,56 @@ if ($placeid > 0 && $PROMO_CAPILAR_CAT > 0) {
 		);
 	};
 
-	$customerRemiseCapilar = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
+	$customerRemise = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
 
 	$capilarLines = array();
+	$acneLines = array();
 	$capilarQty = 0;
+	$acneQty = 0;
 
 	foreach ($invoice->lines as $line) {
 		if (empty($line->fk_product)) continue;
-		$cats = $capilarGetCategories($line->fk_product);
-		if (!in_array($PROMO_CAPILAR_CAT, $cats)) continue;
+		$cats = $promoGetCategories($line->fk_product);
+		$isCapilar = in_array($PROMO_CAPILAR_CAT, $cats);
+		$isAcne = in_array($PROMO_ACNE_CAT, $cats);
+		if (!$isCapilar && !$isAcne) continue;
 
-		$base = $capilarBaseDiscount($line->fk_product, $customerRemiseCapilar);
-		$capilarLines[] = array('line' => $line, 'base' => $base);
-		$capilarQty += (float) $line->qty;
-	}
+		$base = $promoBaseDiscount($line->fk_product, $customerRemise);
+		$entry = array('line' => $line, 'base' => $base);
 
-	// Restore base discount first (idempotent recompute).
-	foreach ($capilarLines as $entry) {
-		$capilarSetDiscount($entry['line'], $entry['base']);
-	}
-
-	$promoPct = 0;
-	if ($capilarQty >= 4) $promoPct = 25;
-	elseif ($capilarQty >= 3) $promoPct = 20;
-	elseif ($capilarQty >= 2) $promoPct = 15;
-
-	if ($promoPct > 0) {
-		foreach ($capilarLines as $entry) {
-			// No reducir un descuento base ya mayor que la promo.
-			$capilarSetDiscount($entry['line'], max($entry['base'], $promoPct));
+		// Si un producto estuviera en ambas, cuenta como Capilar (no duplicar).
+		if ($isCapilar) {
+			$capilarLines[] = $entry;
+			$capilarQty += (float) $line->qty;
+		} else {
+			$acneLines[] = $entry;
+			$acneQty += (float) $line->qty;
 		}
 	}
 
-	if (!empty($capilarLines)) {
+	$participating = array_merge($capilarLines, $acneLines);
+
+	// Restore base discount first (idempotent recompute).
+	foreach ($participating as $entry) {
+		$promoSetDiscount($entry['line'], $entry['base']);
+	}
+
+	$promoPct = 0;
+	if ($acneQty >= 1 && $capilarQty >= 1) {
+		if ($capilarQty >= 4) $promoPct = 25;
+		elseif ($capilarQty >= 3) $promoPct = 20;
+		elseif ($capilarQty >= 2) $promoPct = 15;
+		else $promoPct = 10;
+	}
+
+	if ($promoPct > 0) {
+		foreach ($participating as $entry) {
+			// No reducir un descuento base ya mayor que la promo.
+			$promoSetDiscount($entry['line'], max($entry['base'], $promoPct));
+		}
+	}
+
+	if (!empty($participating)) {
 		$invoice->fetch($placeid);
 	}
 }
