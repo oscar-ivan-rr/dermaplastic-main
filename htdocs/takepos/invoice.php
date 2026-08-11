@@ -933,6 +933,86 @@ if ($placeid > 0 && $PROMO_ACNE_CAT > 0) {
 	}
 }
 
+// =====================================================================
+// Promo FILORGA por monto:
+// Compra de $2000 o más (TTC) de la marca FILORGA = 15% de descuento
+// sobre el monto acumulado de esa marca. Independiente de otras promos.
+// =====================================================================
+$PROMO_FILORGA_CAT = 187; // ID categoría FILORGA
+$PROMO_FILORGA_MIN_AMOUNT = 2000;
+$PROMO_FILORGA_PCT = 15;
+
+if ($placeid > 0 && $PROMO_FILORGA_CAT > 0) {
+	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+
+	$filorgaGetCategories = function ($fkProduct) use ($db) {
+		$c = new Categorie($db);
+		return $c->containing($fkProduct, Categorie::TYPE_PRODUCT, 'id');
+	};
+
+	$filorgaBaseDiscount = function ($fkProduct, $customerRemise) use ($db) {
+		$prod = new Product($db);
+		$prod->fetch($fkProduct);
+		if (!empty($prod->temp_discount) && $prod->temp_discount != 0) return (float) $prod->temp_discount;
+		if (!empty($prod->desc_max) && $prod->desc_max != 0) {
+			return ($prod->desc_max >= 10) ? (float) $customerRemise : (float) $prod->desc_max;
+		}
+		return 0;
+	};
+
+	$filorgaSetDiscount = function ($line, $discount) use ($invoice) {
+		$invoice->updateline(
+			$line->id, $line->desc, $line->subprice, $line->qty, $discount,
+			$line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx,
+			'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0,
+			$line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code,
+			$line->array_options, $line->situation_percent, $line->fk_unit
+		);
+	};
+
+	$customerRemiseFilorga = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
+
+	$filorgaLines = array();
+	foreach ($invoice->lines as $line) {
+		if (empty($line->fk_product)) continue;
+		$cats = $filorgaGetCategories($line->fk_product);
+		if (!in_array($PROMO_FILORGA_CAT, $cats)) continue;
+
+		$base = $filorgaBaseDiscount($line->fk_product, $customerRemiseFilorga);
+		$filorgaLines[] = array('line' => $line, 'base' => $base);
+	}
+
+	// Restaurar descuento base (recomputo idempotente).
+	foreach ($filorgaLines as $entry) {
+		$filorgaSetDiscount($entry['line'], $entry['base']);
+	}
+
+	if (!empty($filorgaLines)) {
+		$invoice->fetch($placeid);
+
+		// Recalcular líneas Filorga y monto TTC acumulado con descuento base.
+		$filorgaLines = array();
+		$filorgaTotalTtc = 0;
+		foreach ($invoice->lines as $line) {
+			if (empty($line->fk_product)) continue;
+			$cats = $filorgaGetCategories($line->fk_product);
+			if (!in_array($PROMO_FILORGA_CAT, $cats)) continue;
+
+			$base = $filorgaBaseDiscount($line->fk_product, $customerRemiseFilorga);
+			$filorgaLines[] = array('line' => $line, 'base' => $base);
+			$filorgaTotalTtc += (float) $line->total_ttc;
+		}
+
+		if ($filorgaTotalTtc >= $PROMO_FILORGA_MIN_AMOUNT) {
+			foreach ($filorgaLines as $entry) {
+				// No reducir un descuento base ya mayor que la promo.
+				$filorgaSetDiscount($entry['line'], max($entry['base'], $PROMO_FILORGA_PCT));
+			}
+			$invoice->fetch($placeid);
+		}
+	}
+}
+
 if ($action == "updatereduction")
 {
     foreach ($invoice->lines as $line)
