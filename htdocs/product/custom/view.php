@@ -74,11 +74,6 @@ $formatosim=array("jpg","png","gif","tiff","psd","bmp","jpeg");
         .brand-logo span {
             font-size: 1.4rem;
         }
-
-        .logo-lion {
-            width: 13rem;
-            height: auto;
-        }
         .card .indicators .indicator-item {
             background-color: black;
         }
@@ -263,7 +258,6 @@ $formatosim=array("jpg","png","gif","tiff","psd","bmp","jpeg");
             <div class="container">
                 <div class="center-align">
                     <span class="white-text left ">Copyright &copy;<script> document.write(new Date().getFullYear());</script> </span>
-                    <span class="white-text "><a  href="https://lionintel.com" target="_blank"><img class="logo-lion center-align" src="./Logo_LION-SS.png" style="width: 8%;height: 8s%;"></a></span>
                     <a class="white-text right" href="mailto: <?= $mysoc->email ?>"><?= $mysoc->email ?></a>
                 </div>
 

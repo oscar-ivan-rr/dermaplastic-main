@@ -299,7 +299,7 @@ top_htmlhead('','',0,0,'',$arrayofcss);
 		<div class="milogo">
 <!--			<img src="img/co_logo.png" class="scale-with-grid" alt="" title="" width="" height="">-->
 		</div>
-        <?php echo $langs->trans("CopyRight"); ?> &copy; 2020 http://cezac.solutionslion.com/ - <?php echo $langs->trans("RightsReserved"); ?>
+        <?php echo $langs->trans("CopyRight"); ?> &copy; <?php echo date('Y'); ?> - <?php echo $langs->trans("RightsReserved"); ?>
 	</div>
 </div><!-- container -->
 

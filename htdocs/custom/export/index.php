@@ -91,7 +91,7 @@ if($action == 'export')
         print '&nbsp;&nbsp;';
         print '<input type="checkbox" name="all_columns_product" id="all_columns_product">';
         $data=array(
-            'Ref Lion',
+            'ref',
             'Ref Sae',
             'Descripcion (etiqueta)',
             'Stock mínimo',

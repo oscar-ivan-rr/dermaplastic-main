@@ -96,7 +96,7 @@ if($action == 'change_warehouse'){
 if (!is_object($form)) $form = new Form($db);
 
 // Title
-$title = $langs->trans("HomeArea").' - Lion Systems Solutions '.DOL_VERSION;
+$title = $langs->trans("HomeArea").' - '.DOL_APPLICATION_TITLE.' '.DOL_VERSION;
 if (!empty($conf->global->MAIN_APPLICATION_TITLE)) $title = $langs->trans("HomeArea").' - '.$conf->global->MAIN_APPLICATION_TITLE;
 
 llxHeader('', $title);

@@ -30,7 +30,7 @@
  *  \brief      File that include conf.php file and commons lib like functions.lib.php
  */
 
-if (! defined('DOL_APPLICATION_TITLE')) define('DOL_APPLICATION_TITLE', 'Lion Systems Solutions');
+if (! defined('DOL_APPLICATION_TITLE')) define('DOL_APPLICATION_TITLE', 'Dolibarr');
 if (! defined('DOL_VERSION')) define('DOL_VERSION', '11.0.3');		// a.b.c-alpha, a.b.c-beta, a.b.c-rcX or a.b.c
 
 if (! defined('EURO')) define('EURO', chr(128));

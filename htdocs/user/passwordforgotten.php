@@ -154,7 +154,7 @@ if ($action == 'buildnewpassword' && $username)
 $dol_url_root = DOL_URL_ROOT;
 
 // Title
-$title = 'Lion Systems Solutions '.DOL_VERSION;
+$title = DOL_APPLICATION_TITLE.' '.DOL_VERSION;
 if (!empty($conf->global->MAIN_APPLICATION_TITLE)) $title = $conf->global->MAIN_APPLICATION_TITLE;
 
 // Select templates

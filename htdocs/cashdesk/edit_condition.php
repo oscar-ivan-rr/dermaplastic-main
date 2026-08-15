@@ -1,6 +1,6 @@
 <?php 
 /**
- * Zabdi Ramírez Garcia                                 zabdi.ramirez@lionintel.com
+ * Zabdi Ramírez Garcia
  * 
  *Funcionalidad para editar padecimiento
  * 

@@ -25,13 +25,13 @@ Existen variables obligatorias y opcionales para este módulo.
   - `$params`: Parámetros necesarios al redirigir cuando el documento sea firmado (`archivo.php?id=1&param=1&extra=1`).
   - `$moreinputs`: Inputs extras que necesitan enviárse al archivo ajax para firmar el documento.
     - Existen dos grupos de inputs que modifican el redireccionamiento a una url en específico, los cuales utilizan un input en común `'force_redirect' => 1`, el cuál indica que el redireccionamiento será diferente al por defecto:
-      - Redireccionar al documento previamente generado y visualizarlo en pantalla, para esta ruta se necesitan los siguientes inputs `array('force_redirect' => 1, 'url_doc' => 1, 'modulepart' => 'xxxx', 'relativepath' => "xxxx/yyy.pdf")`  ([Ejemplo](https://gitlab.com/desarrollo_lionsystems/cezac/-/blob/master/htdocs/custom/pos/frontend/tpl/doc.tpl.php#L35)):
+      - Redireccionar al documento previamente generado y visualizarlo en pantalla, para esta ruta se necesitan los siguientes inputs `array('force_redirect' => 1, 'url_doc' => 1, 'modulepart' => 'xxxx', 'relativepath' => "xxxx/yyy.pdf")`:
         - `url_doc`: Indica que la ruta será la visualización del documento generado.
         - `modulepart`: Modulo al que pertence el objeto.
         - `relativepath`: Ruta relativa del documento:
           - `xxx`: Carpeta del documento, normalemnte es la misma referencia.
           - `yyy`: Nombre del archivo, normalmente la misma referencia.
-      - Redireccionar a una ruta totalmente personalizada `array('force_redirect' => 1, 'url' => 'xxxxxxxxx')`  ([Ejemplo](https://gitlab.com/desarrollo_lionsystems/cezac/-/blob/master/htdocs/compta/bank/transfer.php#L143)):
+      - Redireccionar a una ruta totalmente personalizada `array('force_redirect' => 1, 'url' => 'xxxxxxxxx')`:
         - `url`: Ruta a la cual se redireccionará al crear el documento firmado. Si se utiliza la variable `params`, estos parámetros extra también son incrustados en en `url` para su correcto redireccionamiento.
 
 ###### Invocación

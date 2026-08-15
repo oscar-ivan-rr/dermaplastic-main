@@ -512,7 +512,7 @@ if($user->rights->pos->receive_payments){
             <td>&nbsp;</td>
         </tr>
         <tr><td style="font-size: 12px;">Para generar su autofactura, favor de ingresar al siguiente link o lea el código:</td></tr>
-        <tr><td style="font-size: 12px;">http://cezac.solutionslion.com/htdocs/custom/autofactura_ticket/</td></tr>
+        <tr><td style="font-size: 12px;"><?php echo DOL_MAIN_URL_ROOT; ?>/custom/autofactura_ticket/</td></tr>
         <tr>
             <td>&nbsp;</td>
             <td>&nbsp;</td>

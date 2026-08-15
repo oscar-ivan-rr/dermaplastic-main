@@ -89,7 +89,7 @@ class ProductTemplate extends Template {
         // Relación de propiedades con columnas de excel predefinidas
         $this->relation = array(
             'base' => array (
-                 'ref'					=> 'ref lion'
+                 'ref'					=> 'ref'
                 ,'old_ref'				=> 'ref sae'
                 ,'label'				=> 'descripcion (etiqueta)'
                 ,'seuil_stock_alerte'	=> 'stock mínimo'

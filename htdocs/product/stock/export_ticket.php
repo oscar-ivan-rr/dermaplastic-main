@@ -1,7 +1,6 @@
 <?php
 /*
  * Zabdi Ramírez Garcia
- * zabdi.ramirez@lionintel.com
  */
 
 /**

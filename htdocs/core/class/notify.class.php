@@ -335,7 +335,7 @@ class Notify
 		//$urlwithroot=DOL_MAIN_URL_ROOT;						// This is to use same domain name than current
 
 		// Define some vars
-		$application = 'Lion Systems Solutions';
+		$application = DOL_APPLICATION_TITLE;
 		if (! empty($conf->global->MAIN_APPLICATION_TITLE)) $application = $conf->global->MAIN_APPLICATION_TITLE;
 		$replyto = $conf->notification->email_from;
 		$object_type = '';

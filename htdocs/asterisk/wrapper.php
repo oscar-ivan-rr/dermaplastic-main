@@ -46,7 +46,7 @@ function llxHeader()
 {
     print '<html>'."\n";
     print '<head>'."\n";
-    print '<title>Asterisk redirection from Lion Systems Solutions...</title>'."\n";
+    print '<title>Asterisk redirection from '.DOL_APPLICATION_TITLE.'...</title>'."\n";
     print '</head>'."\n";
 }
 

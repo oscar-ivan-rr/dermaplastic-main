@@ -1,7 +1,6 @@
 <?php
 /*
  * Luis Antonio Ramírez Garcia
- * antonio.ramirez@lionintel.com
  */
 
 /**

@@ -1,6 +1,6 @@
 <?php 
 /**
- * Zabdi Ramírez Garcia                                 zabdi.ramirez@lionintel.com
+ * Zabdi Ramírez Garcia
  * 
  *Funcionalidad visualizar el historial de consultas de un paciente 
  *y realizar una copia de los productos recetados.

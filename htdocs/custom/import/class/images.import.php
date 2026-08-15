@@ -1799,9 +1799,9 @@ function exportFile($start, $end)
 
         $exportSpreadsheet = new PHPExcel();
         $exportSpreadsheet->getProperties()
-            ->setCreator('Lion ERP ExpImp')
-            ->setLastModifiedBy('Lion ERP ExpImp')
-            ->setTitle('Productos exportados - Lion ERP')
+            ->setCreator('ExpImp')
+            ->setLastModifiedBy('ExpImp')
+            ->setTitle('Productos exportados')
             ->setSubject('Productos exportados')
             ->setDescription('Datos exportados sobre los productos dentro del ERP');
 

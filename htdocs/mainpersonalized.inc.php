@@ -1221,7 +1221,7 @@ function top_htmlhead($head, $title = '', $disablejs = 0, $disablehead = 0, $arr
         print '<meta charset="utf-8">'."\n";
         print '<meta name="robots" content="noindex'.($disablenofollow ? '' : ',nofollow').'">'."\n"; // Do not index
         print '<meta name="viewport" content="width=device-width, initial-scale=1.0">'."\n"; // Scale for mobile device
-        print '<meta name="author" content="Lion Systems Solutions Development Team">'."\n";
+        print '<meta name="author" content="Dolibarr Development Team">'."\n";
 
         // Favicon
         $favicon = DOL_URL_ROOT.'/theme/dolibarr_logo_256x256.png';

@@ -13,7 +13,7 @@ class importProductHelper
 	static $properties = array();
 	static $relations = array(
             'base' => array (
-                 'ref'					=> 'ref lion'
+                 'ref'					=> 'ref'
                 ,'old_ref'				=> 'ref sae'
                 ,'label'				=> 'descripción (etiqueta)'
                 ,'seuil_stock_alerte'	=> 'stock mínimo'
@@ -134,7 +134,7 @@ class importProductHelper
 		}
 		if (!isset(self::$properties['base']['ref']))
 		{
-			die ('No se econtró la columna "Ref Lion"');
+			die ('No se econtró la columna "ref"');
 		}
 	}
 	

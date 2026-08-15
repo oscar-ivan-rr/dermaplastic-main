@@ -29,11 +29,6 @@ require '../../main.inc.php';
             </li>
         </ul>
     </div>
-    <div class="logo-lion">
-        <a href="https://lionintel.com">
-            <img src="img/logo_lion.svg" width="80" height="80" class="d-inline-block align-top" alt="">
-        </a>
-    </div>
 </nav>
 <!--/.Navbar-->
 <br>
@@ -70,9 +65,7 @@ require '../../main.inc.php';
 <footer class="page-footer font-small blue">
 
     <!-- Copyright -->
-    <div class="footer-copyright text-center py-3">© 2019 Copyright:
-        <a href="https://lionintel.com"> lionintel.com</a>
-    </div>
+    <div class="footer-copyright text-center py-3">© <?php echo date('Y'); ?> Copyright</div>
     <!-- Copyright -->
 
 </footer>

@@ -30,9 +30,6 @@
 .nav-bar{
     background: linear-gradient(to right, white, lightgray);
 }
-.logo-lion img{
-    filter:invert(1);
-}
 .resultado{
     margin: 5%;
 }

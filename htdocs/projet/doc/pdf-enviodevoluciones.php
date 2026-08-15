@@ -256,7 +256,12 @@ $pdf->SetFont('helvetica', '', 10);
 $pdf->AddPage('P', 'A4');
 
 // Logo
-$pdf->Image(DOL_DOCUMENT_ROOT.'/product/custom/Logo_LION-SS.png', 10, 12, 32.00);
+$logo = (!empty($thirdparty->logo) && !empty($conf->mycompany->dir_output))
+	? $conf->mycompany->dir_output.'/logos/'.$thirdparty->logo
+	: '';
+if (!empty($logo) && is_readable($logo)) {
+	$pdf->Image($logo, 10, 12, 32.00);
+}
 
 // Escribir contenido
 $pdf->setCellPaddings(0, 0, 0, 1);

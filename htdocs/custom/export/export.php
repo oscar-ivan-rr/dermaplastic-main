@@ -215,11 +215,11 @@ elseif($type == 1) {
         $data = array();
         // FIXME: p.rowid
         if($all_col == 'on')
-            $menu=array('Ref Lion','Ref Sae','Descripcion (etiqueta)', utf8_decode('Stock mínimo'), 'Codigo de barras', 'Precio de venta (con iva)', 'Precio de compra', 'Rotacion', 'Ganancia', 'Clave unidad (SAT)', 'Clave SAT', 'Descuento maximo', 'Empaque', 'Cantidad dentro del empaque', 'Categoria', 'Stock en sucursal', 'Exentoiva','Objeto impuesto', 'tasa de iva', 'Ubicacion');
+            $menu=array('ref','Ref Sae','Descripcion (etiqueta)', utf8_decode('Stock mínimo'), 'Codigo de barras', 'Precio de venta (con iva)', 'Precio de compra', 'Rotacion', 'Ganancia', 'Clave unidad (SAT)', 'Clave SAT', 'Descuento maximo', 'Empaque', 'Cantidad dentro del empaque', 'Categoria', 'Stock en sucursal', 'Exentoiva','Objeto impuesto', 'tasa de iva', 'Ubicacion');
         else{
             $menu = array();
             if(in_array("0", $columns))
-                array_push($menu,"Ref Lion");
+                array_push($menu,"ref");
             if(in_array("1", $columns))
                 array_push($menu,"Ref Sae");
             if(in_array("2", $columns))

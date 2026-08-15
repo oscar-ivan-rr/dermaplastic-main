@@ -30,11 +30,6 @@ require '../../master.inc.php';
             </li>
         </ul>
     </div>
-    <!-- <div class="logo-lion">
-        <a href="https://lionintel.com">
-            <img src="img/logo_lion.svg" width="80" height="80" class="d-inline-block align-top" alt="">
-        </a>
-    </div> -->
 </nav>
 <!--/.Navbar-->
 <br>
@@ -102,12 +97,6 @@ require '../../master.inc.php';
     <div class="text-center py-3">
         <span>Para mas información, contacta al equipo de Dermaglobal al <i><b>449-720-6639</b></i></span>
     </div>
-
-    <!-- Copyright -->
-    <!-- <div class="footer-copyright text-center">© 2024 Copyright:
-        <a href="https://lionintel.com"> lionintel.com</a>
-    </div> -->
-    <!-- Copyright -->
 
 </footer>
 <!-- Footer -->

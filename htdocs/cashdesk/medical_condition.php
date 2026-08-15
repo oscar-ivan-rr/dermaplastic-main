@@ -1,6 +1,6 @@
 <?php
 /**
- * Zabdi Ramírez Garcia                             zabdi.ramirez@lionintel.com
+ * Zabdi Ramírez Garcia
  * Visualización del listado de padecimientos correspondientes al usuario logueado
  * y funcionalidad para modificar la variable de sesión relacionada al mismo.
  * 
