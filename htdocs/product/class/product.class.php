@@ -7333,9 +7333,13 @@ class Product extends CommonObject
             $wrhsapartado->fetch($conf->global->{'TAKEPOS_WAREHOUSE_RETURN'});
             
             //Se seleccionan los movimientos de apartados que ocurrieron hace 10 días o más
+			// active=1 (o NULL): pendientes; active=0: ya procesados (no borrar historial)
 			$sql = "SELECT lsm.rowid, lsm.datem, lsm.fk_product, lsm.batch, lsm.value, lsm.inventorycode, lsm.price   
             FROM llx_stock_mouvement lsm 
-            WHERE DATE(lsm.datem) <= '".$refdate."' AND lsm.fk_entrepot = '".$wrhsapartado->id."' AND lsm.type_mouvement = '0'";
+            WHERE DATE(lsm.datem) <= '".$refdate."'
+              AND lsm.fk_entrepot = '".$wrhsapartado->id."'
+              AND lsm.type_mouvement = '0'
+              AND (lsm.active IS NULL OR lsm.active = 1)";
 			$resql = $db->query($sql);
 			if (empty($resql))
             {
@@ -7350,10 +7354,10 @@ class Product extends CommonObject
                 $code = dol_print_date(dol_now('tzuser'), '%y%m%d%H%M%S').($count+1);
                 // Obtener almacén de origen
                 $sql = "SELECT lsm.rowid, lsm.fk_entrepot as origin FROM llx_stock_mouvement lsm 
-                WHERE lsm.inventorycode = '".$obj->inventorycode."' AND lsm.type_mouvement = '1'";
+                WHERE lsm.inventorycode = '".$db->escape($obj->inventorycode)."' AND lsm.type_mouvement = '1'";
                 $resql2 = $db->query($sql);
                 $obj2 = $db->fetch_object($resql2);
-                if (empty($resql2))
+                if (empty($resql2) || empty($obj2))
                 {
                     $this->error = 'Error al obtener almacén de origen';
                     return -2;
@@ -7397,11 +7401,15 @@ class Product extends CommonObject
                 }
                 
                 if ($result1 >0 && $result2 > 0){
-                    $sql = "DELETE FROM " . MAIN_DB_PREFIX . "stock_mouvement WHERE inventorycode = " . $obj->inventorycode . " AND fk_product = " . $obj->fk_product;
+					// Marcar como procesado en lugar de borrar, para conservar auditoría
+                    $sql = "UPDATE " . MAIN_DB_PREFIX . "stock_mouvement"
+						. " SET active = 0"
+						. " WHERE inventorycode = '" . $db->escape($obj->inventorycode) . "'"
+						. " AND fk_product = " . ((int) $obj->fk_product);
 		            $resql3 = $db->query($sql);
                     if (empty($resql3))
                     {
-                        $this->error = 'Error al eliminar movimiento de apartado';
+                        $this->error = 'Error al marcar movimiento de apartado como procesado';
                         return -5;
                     }
                     $count++;

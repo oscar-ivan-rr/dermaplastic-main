@@ -159,6 +159,12 @@ if ($action == 'order' && isset($_POST['valid']))
 				$supplierpriceid = GETPOST('fourn'.$i, 'int');
 				//get all the parameters needed to create a line
 				$qty = GETPOST('tobuy'.$i, 'int');
+				if ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
+					$cedis_available = max(0, (int) GETPOST('cedis_stock'.$i, 'int'));
+					if ($qty > $cedis_available) {
+						$qty = $cedis_available;
+					}
+				}
 				$idprod = $productsupplier->get_buyprice($supplierpriceid, $qty);
 				$res = $productsupplier->fetch($idprod);
 				if ($res && $idprod > 0)
@@ -225,6 +231,12 @@ if ($action == 'order' && isset($_POST['valid']))
 				$supplierpriceid = $proveedortest;
 				//get all the parameters needed to create a line
 				$qty = GETPOST('tobuy'.$i, 'int');
+				if ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
+					$cedis_available = max(0, (int) GETPOST('cedis_stock'.$i, 'int'));
+					if ($qty > $cedis_available) {
+						$qty = $cedis_available;
+					}
+				}
 				$idprod = GETPOST('id'.$i);
 				$res = $productsupplier->fetch($idprod);
 				if ($res && $idprod > 0 && $supplierpriceid!=null)
@@ -969,19 +981,19 @@ if($fk_supplier) {
 		print '<td class="right minwidth100">'. $objp->stock_max .'</td>';
 
 		$stocktobuy = $objp->stock_max - $objp->stock_physique;
-		// if($mode == 'virtual') {
-		// 	if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
-		// 		if(($stocktobuy <= $objp->stock_cedis) && ($stocktobuy >= 0)) $stocktobuy = $objp->stock_max - $stock;
-		// 		else if($objp->stock_max <= 0) $stocktobuy = 0;
-		// 		else $stocktobuy = $objp->stock_cedis;
-		// 	}else{
-		// 		$stocktobuy = $objp->stock_max - ($stock + $objp->all_stock);
-		// 		if($stocktobuy < 0) $stocktobuy = 0;
-		// 	}
-		// }
+		if ($stocktobuy < 0) {
+			$stocktobuy = 0;
+		}
+		// Sucursales: no sugerir más de lo disponible en CEDIS
+		if ($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
+			$cedis_available = max(0, (int) $objp->stock_cedis);
+			if ($stocktobuy > $cedis_available) {
+				$stocktobuy = $cedis_available;
+			}
+		}
 		$functions_no_cedis = "";
 		$disabledQuantity = '';
-		if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) $functions_no_cedis = "oninput='validarNum(".$i.")' onchange='limpiarInput()'";
+		if($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) $functions_no_cedis = "oninput='validarNum(".$i.")'";
 		if($functions_no_cedis) {
 			$disabledQuantity = 'readonly';
 		}
@@ -1047,7 +1059,22 @@ print '
 		toggle(all_checks);
     };
 
+	function validarNum(index) {
+		var input = document.getElementById("tobuy" + index);
+		var input_stock = document.getElementById("cedis_stock" + index);
+		if (!input || !input_stock) return;
 
+		var valor = parseFloat(input.value);
+		var valor_cedis = parseFloat(input_stock.value);
+		valor = isNaN(valor) ? 0 : valor;
+		valor_cedis = isNaN(valor_cedis) ? 0 : valor_cedis;
+
+		if (valor > valor_cedis) {
+			input.value = valor_cedis > 0 ? valor_cedis : 0;
+		} else {
+			input.value = valor;
+		}
+	}
 
 	function toggle(source)
 	{
