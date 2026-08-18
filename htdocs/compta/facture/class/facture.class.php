@@ -3248,13 +3248,14 @@ class Facture extends CommonInvoice
 							$slqUpComm = "UPDATE ".MAIN_DB_PREFIX."commande SET facture = 1 WHERE rowid = ".$objComm->pedido;
 							$resuPComm = $this->db->query($slqUpComm);
 							if($resuPComm){
-								$sqlCommDev = "UPDATE llx_commande AS cm ,
+								// Compatible with sql_mode=ONLY_FULL_GROUP_BY (MAX(total_ht) since pedido is a single order)
+								$sqlCommDev = "UPDATE ".MAIN_DB_PREFIX."commande AS cm ,
 									(
 										SELECT SUM(saldo.TOTAL_PEDIDO - saldo.TOTAL_FACTURA) AS devolucion
 											FROM 
 											(
-												SELECT c.total_ht AS TOTAL_PEDIDO,  SUM(f.total) AS TOTAL_FACTURA
-													FROM llx_element_element AS ee, llx_facture AS f, llx_commande AS c
+												SELECT MAX(c.total_ht) AS TOTAL_PEDIDO, SUM(f.total) AS TOTAL_FACTURA
+													FROM ".MAIN_DB_PREFIX."element_element AS ee, ".MAIN_DB_PREFIX."facture AS f, ".MAIN_DB_PREFIX."commande AS c
 														WHERE 
 															(ee.sourcetype = 'facture' AND ee.targettype = 'commande' AND ee.fk_target = c.rowid AND c.fk_statut > 0 AND f.fk_statut > 0 AND ee.fk_source = f.rowid AND c.rowid = ".$objComm->pedido.") 
 															OR 
@@ -3266,9 +3267,11 @@ class Facture extends CommonInvoice
 								$resuCommDev = $this->db->query($sqlCommDev);
 								if(!$resuCommDev){
 									$error++;
+									$this->error = $this->db->lasterror();
 								}
 							}else{
 								$error++;
+								$this->error = $this->db->lasterror();
 							}
 							$iComm++;
 						}

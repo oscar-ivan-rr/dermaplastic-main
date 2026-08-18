@@ -197,6 +197,7 @@ if (empty($reshook))
 	if ($action == 'add' && $user->rights->expedition->creer) {
 		$error = 0;
 		$predef = '';
+		$createEcommerceInvoice = false;
 
 		$db->begin();
 
@@ -379,7 +380,12 @@ if (empty($reshook))
 						if ($result < 0) {
 							$langs->load("errors");
 							setEventMessages($langs->trans($object->error), $object->errors, 'errors');
+							$error++;
 						} else {
+							// Ecommerce invoice is created after shipment commit (Facture::validate opens its own transaction)
+							$ecommerceNames = array('MercadoLibre', 'Walmart', 'Liverpool', 'COPPEL');
+							$createEcommerceInvoice = (!empty($object->thirdparty->name) && in_array($object->thirdparty->name, $ecommerceNames, true));
+
 							// Define output language
 							if (empty($conf->global->MAIN_DISABLE_PDF_AUTOUPDATE)) {
 								$outputlangs = $langs;
@@ -393,7 +399,7 @@ if (empty($reshook))
 									$outputlangs->setDefaultLang($newlang);
 								}
 								$model = $object->modelpdf;
-								$ret = $object->fetch($id); // Reload to get new records
+								$ret = $object->fetch($object->id); // Reload to get new records
 
 								$result = $object->generateDocument($model, $outputlangs, $hidedetails, $hidedesc, $hideref);
 								if ($result < 0)
@@ -414,6 +420,101 @@ if (empty($reshook))
 		if (!$error) {
 			$db->commit();
 			setEventMessages('Envio registrado con éxito.', '');
+
+			// Auto-create validated sale for ecommerce third parties (after shipment commit)
+			if (!empty($createEcommerceInvoice) && $object->id > 0) {
+				require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+
+				$facture = new Facture($db);
+				$facture->socid = $object->socid;
+				$facture->type = Facture::TYPE_STANDARD;
+				$facture->date = dol_now();
+				$facture->origin = 'shipping';
+				$facture->origin_id = $object->id;
+				$facture->linked_objects['shipping'] = $object->id;
+				if (!empty($object->origin_id)) {
+					$facture->linked_objects['commande'] = $object->origin_id;
+				}
+
+				$facture_id = $facture->create($user);
+				if ($facture_id <= 0) {
+					setEventMessages($facture->error ? $facture->error : 'Error al crear la venta del envío ecommerce.', $facture->errors, 'errors');
+				} else {
+					$invoiceError = 0;
+					$object->fetch_lines();
+					foreach ($object->lines as $line) {
+						if (empty($line->qty)) {
+							continue;
+						}
+
+						$label = (!empty($line->label) ? $line->label : '');
+						$desc = (!empty($line->desc) ? $line->desc : (!empty($line->description) ? $line->description : $line->libelle));
+						$product_type = (!empty($line->product_type) ? $line->product_type : 0);
+						$tva_tx = $line->tva_tx;
+						if (!empty($line->vat_src_code) && !preg_match('/\(/', $tva_tx)) {
+							$tva_tx .= ' ('.$line->vat_src_code.')';
+						}
+						$localtax1_tx = get_localtax($tva_tx, 1, $object->thirdparty);
+						$localtax2_tx = get_localtax($tva_tx, 2, $object->thirdparty);
+						$fk_fournprice = (!empty($line->fk_fournprice) ? $line->fk_fournprice : null);
+						$pa_ht = (!empty($line->pa_ht) ? $line->pa_ht : 0);
+						$remise_percent = (!empty($line->remise_percent) ? $line->remise_percent : 0);
+						$info_bits = (!empty($line->info_bits) ? $line->info_bits : 0);
+						$rang = (isset($line->rang) ? $line->rang : -1);
+						$special_code = (!empty($line->special_code) ? $line->special_code : 0);
+						$fk_unit = (!empty($line->fk_unit) ? $line->fk_unit : null);
+
+						$resultline = $facture->addline(
+							$desc,
+							$line->subprice,
+							$line->qty,
+							$tva_tx,
+							$localtax1_tx,
+							$localtax2_tx,
+							$line->fk_product,
+							$remise_percent,
+							'',
+							'',
+							0,
+							$info_bits,
+							'',
+							'HT',
+							0,
+							$product_type,
+							$rang,
+							$special_code,
+							'shipping',
+							$line->id,
+							0,
+							$fk_fournprice,
+							$pa_ht,
+							$label,
+							0,
+							100,
+							0,
+							$fk_unit
+						);
+
+						if ($resultline <= 0) {
+							setEventMessages($facture->error, $facture->errors, 'errors');
+							$invoiceError++;
+							break;
+						}
+					}
+
+					// Validate without warehouse: stock already moved on shipment
+					if (!$invoiceError) {
+						$resultvalid = $facture->validate($user);
+						if ($resultvalid < 0) {
+							$errmsg = $facture->error ? $facture->error : $db->lasterror();
+							setEventMessages($errmsg ? $errmsg : 'Error al validar la venta del envío ecommerce.', $facture->errors, 'errors');
+						} else {
+							setEventMessages('Venta validada creada: '.$facture->ref, null);
+						}
+					}
+				}
+			}
+
 			header("Location: card.php?id=" . $object->id);
 			exit;
 		} else {
