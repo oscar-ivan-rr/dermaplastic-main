@@ -61,6 +61,42 @@ if (!empty($conf->projet->enabled)) {
 
 require_once DOL_DOCUMENT_ROOT . '/product/functions.php';
 
+/**
+ * Notify the platform that a Walmart order has been shipped.
+ *
+ * @param string $purchaseOrderId Walmart purchase order / commande pack_id
+ * @return array{ok:bool,http_code:int,response:string}
+ */
+function notifyWalmartShippingFromExpedition($purchaseOrderId)
+{
+	$url = rtrim(BACKEND_URL, '/').'/api/walmart/erp/orders/'.urlencode($purchaseOrderId).'/shipping';
+	$apiKey = getenv('WALMART_API_KEY') ?: getenv('VALID_API_KEY_ERP');
+	$ch = curl_init($url);
+	curl_setopt_array($ch, array(
+		CURLOPT_POST => true,
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_CONNECTTIMEOUT => 15,
+		CURLOPT_TIMEOUT => 60,
+		CURLOPT_HTTPHEADER => array(
+			'api-key: '.$apiKey,
+		),
+	));
+	$response = curl_exec($ch);
+	$httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	$curlError = curl_error($ch);
+	curl_close($ch);
+
+	if ($response === false) {
+		$response = $curlError;
+	}
+
+	return array(
+		'ok' => ($httpCode === 200),
+		'http_code' => $httpCode,
+		'response' => (string) $response,
+	);
+}
+
 
 // Load translation files required by the page
 $langs->loadLangs(array("sendings", "companies", "bills", 'deliveries', 'orders', 'stocks', 'other', 'propal'));
@@ -420,6 +456,28 @@ if (empty($reshook))
 		if (!$error) {
 			$db->commit();
 			setEventMessages('Envio registrado con éxito.', '');
+
+			// Notify Walmart when its ecommerce shipment is created successfully.
+			if (!empty($createEcommerceInvoice) && !empty($object->thirdparty->name) && $object->thirdparty->name === 'Walmart') {
+				$walmartOrder = new Commande($db);
+				if (!empty($object->origin_id) && $walmartOrder->fetch($object->origin_id) > 0 && !empty($walmartOrder->pack_id)) {
+					$notify = notifyWalmartShippingFromExpedition($walmartOrder->pack_id);
+					if ($notify['ok']) {
+						setEventMessages('Notificación de despacho Walmart confirmada.', null);
+					} else {
+						$msg = 'El envío fue creado, pero falló la notificación Walmart (HTTP '.$notify['http_code'].')';
+						$decoded = json_decode($notify['response'], true);
+						if (!empty($decoded['message'])) {
+							$msg .= ': '.$decoded['message'];
+						} elseif (!empty($notify['response'])) {
+							$msg .= ': '.$notify['response'];
+						}
+						setEventMessages($msg, null, 'warnings');
+					}
+				} else {
+					setEventMessages('El envío fue creado, pero no se notificó a Walmart porque el pedido origen no tiene pack_id.', null, 'warnings');
+				}
+			}
 
 			// Auto-create validated sale for ecommerce third parties (after shipment commit)
 			if (!empty($createEcommerceInvoice) && $object->id > 0) {
