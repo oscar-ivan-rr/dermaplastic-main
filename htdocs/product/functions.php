@@ -46,6 +46,65 @@ function sendPackId($id_orden)
     return 0;
 }
 
+/**
+ * Check if an inventory/transfer code is already used in movements or drafts.
+ *
+ * @param DoliDB $db
+ * @param string $code
+ * @return bool
+ */
+function inventoryCodeExists($db, $code)
+{
+	$code = trim((string) $code);
+	if ($code === '') {
+		return false;
+	}
+	$escaped = $db->escape($code);
+
+	$sql = "SELECT inventorycode FROM " . MAIN_DB_PREFIX . "stock_mouvement WHERE inventorycode = '" . $escaped . "' LIMIT 1";
+	$res = $db->query($sql);
+	if ($res && $db->num_rows($res) > 0) {
+		return true;
+	}
+
+	$sql = "SELECT code FROM " . MAIN_DB_PREFIX . "stock_mouvement_draft WHERE code = '" . $escaped . "' LIMIT 1";
+	$res = $db->query($sql);
+	return ($res && $db->num_rows($res) > 0);
+}
+
+/**
+ * Generate a unique inventory/transfer code.
+ * Format: YmdHis + userId(4) + random(2). Reuses $preferred when still free.
+ * Prevents same-second collisions between users (root cause of shared transfer codes).
+ *
+ * @param DoliDB     $db
+ * @param User       $user
+ * @param string     $preferred Optional code from the form
+ * @return string
+ */
+function generateUniqueInventoryCode($db, $user, $preferred = '')
+{
+	$preferred = trim((string) $preferred);
+	if ($preferred !== '' && !inventoryCodeExists($db, $preferred)) {
+		return $preferred;
+	}
+
+	$userId = isset($user->id) ? (int) $user->id : 0;
+	for ($i = 0; $i < 20; $i++) {
+		$code = dol_print_date(dol_now(), '%Y%m%d%H%M%S')
+			. sprintf('%04d', $userId)
+			. sprintf('%02d', mt_rand(0, 99));
+		if (!inventoryCodeExists($db, $code)) {
+			return $code;
+		}
+		usleep(10000);
+	}
+
+	return dol_print_date(dol_now(), '%Y%m%d%H%M%S')
+		. sprintf('%04d', $userId)
+		. substr(str_replace('.', '', uniqid('', true)), -6);
+}
+
 function updateShopifyPrice($product_id) {
     $headers = [
         'api-key: ' . API_KEY

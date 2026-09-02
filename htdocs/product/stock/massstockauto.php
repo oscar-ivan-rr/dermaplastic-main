@@ -32,6 +32,7 @@ require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT."/cron/class/cronjob.class.php";
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/functions.php';
 
 // Load translation files required by the page
 $langs->loadLangs(array('products', 'stocks', 'orders', 'productbatch'));
@@ -217,6 +218,11 @@ if ($action == 'createmovements' && $borrar==null)
 	}
 	else $rowids = GETPOST('tsm', 'none', 2); // Rowids to transfer
 
+	// Si el código del formulario ya existe, regenerar uno libre (evita colisiones
+	// entre usuarios que abren la pantalla en el mismo segundo).
+	$codemove = generateUniqueInventoryCode($db, $user, GETPOST("codemove", 'alpha'));
+	$labelmovement = GETPOST("label");
+
 	if (!$error)
 	{
 		$db->begin();
@@ -259,9 +265,9 @@ if ($action == 'createmovements' && $borrar==null)
 							$id_sw,
 							$qty,
 							1,
-							GETPOST("label"),
+							$labelmovement,
 							$pricesrc,
-							GETPOST("codemove"),
+							$codemove,
 							'MassStockAuto',
 							1,
 							$draft,
@@ -279,9 +285,9 @@ if ($action == 'createmovements' && $borrar==null)
 							$id_tw,
 							$qty,
 							0,
-							GETPOST("label"),
+							$labelmovement,
 							$pricedest,
-							GETPOST("codemove"),
+							$codemove,
 							'MassStockAuto',
 							1,
 							$draft,
@@ -315,12 +321,12 @@ if ($action == 'createmovements' && $borrar==null)
 							$id_sw,
 							$qty,
 							1,
-							GETPOST("label"),
+							$labelmovement,
 							$pricesrc,
 							$dlc,
 							$dluo,
 							'',
-							GETPOST("codemove"),
+							$codemove,
 							'MassStockAuto'
 						);
 						if ($result1 < 0)
@@ -335,12 +341,12 @@ if ($action == 'createmovements' && $borrar==null)
 							$id_tw,
 							$qty,
 							0,
-							GETPOST("label"),
+							$labelmovement,
 							$pricedest,
 							$dlc,
 							$dluo,
 							'',
-							GETPOST("codemove"),
+							$codemove,
 							'MassStockAuto'
 						);
 						if ($result2 < 0)
@@ -377,9 +383,9 @@ if ($action == 'createmovements' && $borrar==null)
 						exit;
 					}
 					else {
-						$codemovement = GETPOST("codemove");
+						$codemovement = $codemove;
 						setEventMessages($langs->trans("StockMovementRecorded"), null, 'mesgs');
-						header("Location: ".DOL_URL_ROOT."/product/stock/movement_card.php?id=$id_sw&search_inventorycode=$codemovement&search_type_mouvement=1"); // Redirect to avoid pb when using back
+						header("Location: ".DOL_URL_ROOT."/product/stock/movement_card.php?id=$id_sw&search_inventorycode=".urlencode($codemovement)."&search_type_mouvement=1"); // Redirect to avoid pb when using back
 						exit;
 					}
 				}
@@ -670,14 +676,14 @@ print '<input type="hidden" name="action" value="createmovements">';
 print '<input type="hidden" name="draft" value="'.$draft.'">';
 
 // Button to record mass movement
-$codemove = (isset($_POST["codemove"]) ?GETPOST("codemove", 'alpha') : dol_print_date(dol_now(), '%Y%m%d%H%M%S'));
+$codemove = (isset($_POST["codemove"]) ? GETPOST("codemove", 'alpha') : generateUniqueInventoryCode($db, $user));
 $labelmovement = GETPOST("label") ?GETPOST('label') : $langs->trans("StockInternTransfer").' '.dol_print_date($now, '%Y-%m-%d %H:%M');
 
 print '<table class="noborder centpercent">';
 	print '<tr>';
 	print '<td class="titlefield fieldrequired">'.$langs->trans("InventoryCode").'</td>';
 	print '<td>';
-	print '<input type="text" name="codemove" size="15" value="'.dol_escape_htmltag($codemove).'">';
+	print '<input type="text" name="codemove" size="22" value="'.dol_escape_htmltag($codemove).'">';
 	print '</td>';
 	print '</tr>';
 	print '<tr>';

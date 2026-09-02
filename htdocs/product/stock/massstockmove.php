@@ -381,6 +381,11 @@ if ($action == 'createmovements') {
 
 	$db->begin();
 
+	// Un solo código por transferencia; si el del formulario ya existe (colisión
+	// por timestamp al segundo entre dos usuarios), se genera uno nuevo.
+	$codemove = generateUniqueInventoryCode($db, $user, GETPOST("codemove", 'alpha'));
+	$label = GETPOST("label");
+
 	if (!$error) {
 		$product = new Product($db);
 		$lote = new Productlot($db);
@@ -458,9 +463,6 @@ if ($action == 'createmovements') {
 			}
 
 			if ($error == 0 && $id_sw !== $id_tw && is_numeric($qty) && !empty($id_product)) {
-				$label = GETPOST("label");
-				$codemove = GETPOST("codemove");
-
 				$response = $product->correct_stock_batch($user, $id_sw, $qty, 1, $label, 0, $dlc, $dluo, $lote->batch, $codemove);
 
 				$result = $product->create_draft_movement($user, $id_sw, $id_tw, $qty, 1, $label, $dlc, $dluo, $lote->batch, $codemove);
@@ -498,7 +500,7 @@ if ($action == 'createmovements') {
 
 		//PARA VALIDAR AUTOMATICAMENTE
 		$chbxs = array();
-		$sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . "stock_mouvement_draft WHERE fk_user = " . $user->id . "  AND label = '" . GETPOST("label") . "' AND code = '" . GETPOST("codemove") . "' AND qty < 0";
+		$sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . "stock_mouvement_draft WHERE fk_user = " . $user->id . "  AND label = '" . $db->escape($label) . "' AND code = '" . $db->escape($codemove) . "' AND qty < 0";
 		$resql = $db->query($sql);
 
 		if ($resql) {
@@ -509,7 +511,7 @@ if ($action == 'createmovements') {
 
 		$_SESSION['traspasoAuto'] = $chbxs;
 
-		header("Location: " . DOL_URL_ROOT . '/product/stock/movement_list_draft.php?action=printpdfcorrection&codetosearch=' . GETPOST("codemove"));
+		header("Location: " . DOL_URL_ROOT . '/product/stock/movement_list_draft.php?action=printpdfcorrection&codetosearch=' . urlencode($codemove));
 		exit;
 	} else {
 		$db->rollback();
@@ -774,7 +776,7 @@ print '<input type="hidden" name="action" value="createmovements">';
 print '<input type="hidden" name="draft" value="' . $draft . '">';
 
 // Button to record mass movement
-$codemove = (isset($_POST["codemove"]) ? GETPOST("codemove", 'alpha') : dol_print_date($now, '%Y%m%d%H%M%S'));
+$codemove = (isset($_POST["codemove"]) ? GETPOST("codemove", 'alpha') : generateUniqueInventoryCode($db, $user));
 $labelmovement = GETPOST("label") ? GETPOST('label') : $langs->trans("StockTransfer") . ' ' . dol_print_date($now, '%Y-%m-%d %H:%M');
 
 print '<table class="noborder centpercent">';
