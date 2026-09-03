@@ -455,9 +455,39 @@ if (empty($reshook))
 		if ($prod_entry_mode != 'free' && empty($error))	// With combolist mode idprodfournprice is > 0 or -1. With autocomplete, idprodfournprice is > 0 or ''
 		{
 			$productsupplier = new ProductFournisseur($db);
+
+			$idprod = 0;
 			if (GETPOST('idprodfournprice', 'alpha') == -1 || GETPOST('idprodfournprice', 'alpha') == '') $idprod = -99; // Same behaviour than with combolist. When not select idprodfournprice is now -99 (to avoid conflict with next action that may return -1, -2, ...)
 
 			$reg = array();
+			if (preg_match('/^idprod_([0-9]+)$/', GETPOST('idprodfournprice', 'alpha'), $reg))
+			{
+				$idprod = $reg[1];
+				$res = $productsupplier->fetch($idprod); // Load product from its id
+				// Call to init some price properties of $productsupplier
+				// So if a supplier price already exists for another thirdparty (first one found), we use it as reference price
+				if (!empty($conf->global->SUPPLIER_TAKE_FIRST_PRICE_IF_NO_PRICE_FOR_CURRENT_SUPPLIER))
+				{
+					$fksoctosearch = 0;
+					$productsupplier->get_buyprice(0, -1, $idprod, 'none', $fksoctosearch); // We force qty to -1 to be sure to find if a supplier price exist
+					if ($productsupplier->fourn_socid != $socid)	// The price we found is for another supplier, so we clear supplier price
+					{
+						$productsupplier->ref_supplier = '';
+					}
+				}
+				else
+				{
+					$fksoctosearch = $object->thirdparty->id;
+					$productsupplier->get_buyprice(0, -1, $idprod, 'none', $fksoctosearch); // We force qty to -1 to be sure to find if a supplier price exist
+				}
+			}
+			elseif (GETPOST('idprodfournprice', 'alpha') > 0)
+			{
+				$qtytosearch = $qty; 	   // Just to see if a price exists for the quantity. Not used to found vat.
+				//$qtytosearch=-1;	       // We force qty to -1 to be sure to find if a supplier price exist
+				$idprod = $productsupplier->get_buyprice(GETPOST('idprodfournprice', 'alpha'), $qtytosearch);
+				$res = $productsupplier->fetch($idprod);
+			}
 
 			if ($idprod > 0)
 			{
