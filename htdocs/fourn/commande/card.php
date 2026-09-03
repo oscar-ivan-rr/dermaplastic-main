@@ -320,7 +320,7 @@ if (empty($reshook))
 					$sql .= ' WHERE rowid = '.$object->id;
 
 					$resql = $db->query($sql);
-				} elseif ($newstatus == 2 && $object->socid == $conf->global->{'CEDIS_SUPPLIER'}) {
+				} elseif ($newstatus == 2 && isInternalHubSupplier($object->socid)) {
 					$sql = "SELECT c.rowid FROM ".MAIN_DB_PREFIX."commande as c WHERE c.fk_commande_fourn= ".$object->id;
 					$resql = $db->query($sql);
 					if($resql > 0){
@@ -992,7 +992,8 @@ if (empty($reshook))
 	
 			$commande->socid = $customer->rowid;
 			$commande->ref_client = $customer->nom;
-			$commande->warehouse_id = $conf->global->{'CEDIS_WAREHOUSE'};
+			$hubWh = getHubWarehouseId($object->socid);
+			$commande->warehouse_id = $hubWh > 0 ? $hubWh : $conf->global->{'CEDIS_WAREHOUSE'};
 			$commande->date_commande = dol_now('tzuser');
 			$commande->fk_commande_fourn = $object->id;
 			$commande_id = $commande->create($user);
@@ -2859,10 +2860,19 @@ elseif (!empty($object->id))
 				}
 			}
 			
-			// Pedido a CEDIS
-			if (in_array($object->statut, array(CommandeFournisseur::STATUS_ACCEPTED)) && $object->socid == $conf->global->{'CEDIS_SUPPLIER'} && $object->getCommandeQty() <= 0)
+			// Pedido a CEDIS / Almacen DG (hub interno)
+			$showPedirCedis = false;
+			if (in_array($object->statut, array(CommandeFournisseur::STATUS_ACCEPTED)) && $object->getCommandeQty() <= 0) {
+				if (!empty($conf->global->CEDIS_SUPPLIER) && (int) $object->socid === (int) $conf->global->CEDIS_SUPPLIER) {
+					$showPedirCedis = true;
+				} elseif (isAlmacenDgSupplier($object->socid) && isSucursalWarehouse($db, $object->fk_entrepot)) {
+					$showPedirCedis = true;
+				}
+			}
+			if ($showPedirCedis)
 			{
-				print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&amp;action=order_to_cedis">'.$langs->trans("PEDIR a CEDIS").'</a>';
+				$pedirLabel = isAlmacenDgSupplier($object->socid) ? 'PEDIR a Almacen DG' : $langs->trans("PEDIR a CEDIS");
+				print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&amp;action=order_to_cedis">'.$pedirLabel.'</a>';
 			}
 
 			// Send
@@ -2918,7 +2928,7 @@ elseif (!empty($object->id))
 				}
 			}
 
-			if ($object->statut == CommandeFournisseur::STATUS_ACCEPTED &&  $object->socid != $conf->global->{'CEDIS_SUPPLIER'})
+			if ($object->statut == CommandeFournisseur::STATUS_ACCEPTED && !isInternalHubSupplier($object->socid))
 			{
 				if ($user->rights->fournisseur->commande->commander)
 				{

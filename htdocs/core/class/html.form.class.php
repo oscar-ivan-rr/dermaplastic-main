@@ -2754,7 +2754,13 @@ class Form
             $langs->load('other');
         }
 
-		$sql = "SELECT DISTINCT p.rowid, p.ref, p.label, p.price, p.duration, p.fk_product_type, p.cost_price ";
+		// Include pfp.* columns required by ORDER BY / option value (MySQL rejects
+		// DISTINCT + ORDER BY on non-selected columns → DB_ERROR_3065).
+		// cost_price kept for Dermaplastic display of buy cost in the combo.
+		$sql = "SELECT p.rowid, p.ref, p.label, p.price, p.duration, p.fk_product_type, p.cost_price,";
+		$sql .= " pfp.ref_fourn, pfp.rowid as idprodfournprice, pfp.price as fprice, pfp.quantity, pfp.remise_percent, pfp.remise, pfp.unitprice,";
+		$sql .= " pfp.fk_supplier_price_expression, pfp.fk_product, pfp.tva_tx, pfp.fk_soc, s.nom as name,";
+		$sql .= " pfp.supplier_reputation";
         // Units
         if ($conf->global->PRODUCT_USE_UNITS) {
             $sql .= ", u.label as unit_long, u.short_label as unit_short, p.weight, p.weight_units, p.length, p.length_units, p.width, p.width_units, p.height, p.height_units, p.surface, p.surface_units, p.volume, p.volume_units";
@@ -2817,7 +2823,7 @@ class Form
 			{
 				$objp = $this->db->fetch_object($result);
 
-				$outkey = $objp->rowid; // id in table of price
+				$outkey = $objp->idprodfournprice; // id in table of price
 				if (!$outkey && $alsoproductwithnosupplierprice) $outkey = 'idprod_'.$objp->rowid; // id of product
 
 				$outref = $objp->ref;

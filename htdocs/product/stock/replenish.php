@@ -33,6 +33,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/functions.php';
 require_once './lib/replenishment.lib.php';
 ini_set('display_errors', '0');
 // Load translation files required by the page
@@ -231,7 +232,7 @@ if ($action == 'order' && isset($_POST['valid']))
 				$supplierpriceid = $proveedortest;
 				//get all the parameters needed to create a line
 				$qty = GETPOST('tobuy'.$i, 'int');
-				if ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
+				if ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && !isAlmacenDgSupplier($fk_supplier)) {
 					$cedis_available = max(0, (int) GETPOST('cedis_stock'.$i, 'int'));
 					if ($qty > $cedis_available) {
 						$qty = $cedis_available;
@@ -269,9 +270,11 @@ if ($action == 'order' && isset($_POST['valid']))
 
 						$line->tva_tx = $productsupplier->tva_tx;
 						$subprice = 0;
-						if($fk_entrepot != $conf->global->CEDIS_WAREHOUSE){
+						if (isAlmacenDgSupplier($fk_supplier)) {
+							$subprice = price2num(round(((float) $productsupplier->cost_price) * 1.10, 2));
+						} elseif ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
 							$subprice = $productsupplier->cost_price_sucursal;
-						}else{
+						} else {
 							$subprice = $productsupplier->cost_price;
 						}
 						$line->subprice = $subprice;
@@ -702,7 +705,7 @@ if (!empty($conf->global->STOCK_ALLOW_ADD_LIMIT_STOCK_BY_WAREHOUSE))
 $filter_warehouse = "";
 $show_empty_warehouse = 0;
 if($entrepot_id > 0 && ($entrepot_id != $conf->global->CEDIS_WAREHOUSE)){
-	$filter_warehouse = "fournisseur=1 AND nom='CEDIS'";
+	$filter_warehouse = "fournisseur=1 AND nom IN ('CEDIS','Almacen DG')";
 }else{
 	$filter_warehouse = "fournisseur=1";
 	$show_empty_warehouse = 1;

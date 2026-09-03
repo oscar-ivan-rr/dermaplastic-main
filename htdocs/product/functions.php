@@ -123,3 +123,215 @@ function updateShopifyPrice($product_id) {
     curl_close($ch);
     return 0;
 }
+
+/**
+ * Proveedor hub interno (CEDIS o Almacen DG).
+ * @param int $socid
+ * @return bool
+ */
+function isInternalHubSupplier($socid)
+{
+	global $conf;
+	$socid = (int) $socid;
+	if ($socid <= 0) {
+		return false;
+	}
+	if (!empty($conf->global->CEDIS_SUPPLIER) && $socid === (int) $conf->global->CEDIS_SUPPLIER) {
+		return true;
+	}
+	if (!empty($conf->global->DG_SUPPLIER) && $socid === (int) $conf->global->DG_SUPPLIER) {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * @param int $socid
+ * @return bool
+ */
+function isAlmacenDgSupplier($socid)
+{
+	global $conf;
+	return !empty($conf->global->DG_SUPPLIER) && (int) $socid === (int) $conf->global->DG_SUPPLIER;
+}
+
+/**
+ * Warehouse id del hub asociado al proveedor (CEDIS o Almacen DG).
+ * @param int $socid
+ * @return int
+ */
+function getHubWarehouseId($socid)
+{
+	global $conf;
+	if (isAlmacenDgSupplier($socid) && !empty($conf->global->DG_WAREHOUSE)) {
+		return (int) $conf->global->DG_WAREHOUSE;
+	}
+	return !empty($conf->global->CEDIS_WAREHOUSE) ? (int) $conf->global->CEDIS_WAREHOUSE : 0;
+}
+
+/**
+ * @param DoliDB $db
+ * @param int    $entrepot_id
+ * @return bool
+ */
+function isSucursalWarehouse($db, $entrepot_id)
+{
+	$entrepot_id = (int) $entrepot_id;
+	if ($entrepot_id <= 0) {
+		return false;
+	}
+	$e = new Entrepot($db);
+	if ($e->fetch($entrepot_id) <= 0) {
+		return false;
+	}
+	$ref = !empty($e->ref) ? $e->ref : $e->libelle;
+	return (strpos($ref, 'Sucursal') === 0);
+}
+
+/**
+ * Factura de venta a la sucursal por envío desde Almacen DG (costo + 10%).
+ * No mueve stock (ya salió en el envío / dispatch).
+ *
+ * @param DoliDB     $db
+ * @param User       $user
+ * @param Expedition $expedition
+ * @param Commande   $commande Cliente (pedido a hub)
+ * @return array{ok:bool,skipped?:bool,error?:string,facture_id?:int,facture_ref?:string}
+ */
+function createInvoiceFromDgShipment($db, $user, $expedition, $commande)
+{
+	global $conf;
+
+	$result = array('ok' => false);
+
+	if (empty($commande->fk_commande_fourn)) {
+		$result['skipped'] = true;
+		$result['ok'] = true;
+		return $result;
+	}
+
+	require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+
+	$po = new CommandeFournisseur($db);
+	if ($po->fetch((int) $commande->fk_commande_fourn) <= 0 || !isAlmacenDgSupplier($po->socid)) {
+		$result['skipped'] = true;
+		$result['ok'] = true;
+		return $result;
+	}
+
+	if (empty($expedition->lines)) {
+		$expedition->fetch_lines();
+	}
+	if (empty($expedition->lines)) {
+		$result['error'] = 'Envio sin lineas para facturar DG';
+		return $result;
+	}
+
+	$note = 'Factura automatica Almacen DG → sucursal. Traslado '.$expedition->ref
+		.(!empty($commande->ref) ? ' / pedido '.$commande->ref : '')
+		.(!empty($po->ref) ? ' / OC '.$po->ref : '')
+		.'. Precio = costo + 10%.';
+
+	$facture = new Facture($db);
+	$facture->socid = $commande->socid;
+	$facture->type = Facture::TYPE_STANDARD;
+	$facture->date = dol_now('tzuser');
+	$facture->ref_client = !empty($commande->ref_client) ? $commande->ref_client : '';
+	$facture->note_public = $note;
+	$facture->note_private = $note;
+	$facture->origin = 'shipping';
+	$facture->origin_id = $expedition->id;
+	$facture->linked_objects['shipping'] = $expedition->id;
+	$facture->linked_objects['commande'] = $commande->id;
+	if (!empty($po->id)) {
+		$facture->linked_objects['order_supplier'] = $po->id;
+	}
+
+	$facture_id = $facture->create($user);
+	if ($facture_id <= 0) {
+		$result['error'] = 'Error al crear factura DG: '.(!empty($facture->error) ? $facture->error : 'create failed');
+		return $result;
+	}
+
+	$product = new Product($db);
+	$error = 0;
+	foreach ($expedition->lines as $line) {
+		$qty = price2num($line->qty);
+		$fk_product = (int) $line->fk_product;
+		if ($qty <= 0 || $fk_product <= 0) {
+			continue;
+		}
+		if ($product->fetch($fk_product) <= 0) {
+			$error++;
+			$result['error'] = 'Producto no encontrado: '.$fk_product;
+			break;
+		}
+		$cost = price2num($product->cost_price);
+		if ($cost === '' || $cost === null) {
+			$cost = 0;
+		}
+		$subprice = price2num(round(((float) $cost) * 1.10, 2));
+		$tva_tx = (!empty($product->tva_tx) || $product->tva_tx === '0' || $product->tva_tx === 0) ? $product->tva_tx : 16;
+		$label = $product->label;
+		$desc = !empty($product->description) ? $product->description : $product->label;
+		$type = !empty($product->type) ? $product->type : 0;
+
+		$add = $facture->addline(
+			$desc,
+			$subprice,
+			$qty,
+			$tva_tx,
+			0,
+			0,
+			$fk_product,
+			0,
+			'',
+			'',
+			0,
+			0,
+			'',
+			'HT',
+			0,
+			$type,
+			-1,
+			0,
+			'shipping',
+			$line->id,
+			0,
+			null,
+			$cost,
+			$label
+		);
+		if ($add < 0) {
+			$error++;
+			$result['error'] = 'Error linea factura DG '.$product->ref.': '.$facture->error;
+			break;
+		}
+	}
+
+	if ($error) {
+		$facture->delete($user);
+		return $result;
+	}
+
+	$prevBillStock = isset($conf->global->STOCK_CALCULATE_ON_BILL) ? $conf->global->STOCK_CALCULATE_ON_BILL : null;
+	$conf->global->STOCK_CALCULATE_ON_BILL = 0;
+	$valid = $facture->validate($user, '', 0);
+	if ($prevBillStock !== null) {
+		$conf->global->STOCK_CALCULATE_ON_BILL = $prevBillStock;
+	}
+
+	if ($valid < 0) {
+		$result['error'] = 'Error al validar factura DG: '.$facture->error;
+		$result['facture_id'] = $facture->id;
+		$result['ok'] = true;
+		return $result;
+	}
+
+	$result['ok'] = true;
+	$result['facture_id'] = $facture->id;
+	$result['facture_ref'] = $facture->ref;
+	return $result;
+}

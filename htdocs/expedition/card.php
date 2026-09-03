@@ -347,7 +347,8 @@ if (empty($reshook))
 							if (!empty($objectsrc->fk_commande_fourn)) {
 								$comm = new CommandeFournisseur($db);
 								$comm->fetch($objectsrc->fk_commande_fourn);
-								$msg = 'Recepción de pedido a CEDIS ' . $comm->ref;
+								$hubLabel = isAlmacenDgSupplier($comm->socid) ? 'Almacen DG' : 'CEDIS';
+								$msg = 'Recepción de pedido a '.$hubLabel.' '.$comm->ref;
 								$result2 = $comm->dispatchProduct($user, $idPrd, $qtylote, $comm->fk_entrepot, 0, $msg, $eatby, $sellby, $batch, $fk_commandefourndet, $notrigger);
 							}
 						}
@@ -569,6 +570,19 @@ if (empty($reshook))
 						} else {
 							setEventMessages('Venta validada creada: '.$facture->ref, null);
 						}
+					}
+				}
+			}
+
+			// Almacen DG: factura a sucursal a costo + 10% tras recepción/envío
+			if ($object->id > 0 && !empty($object->origin_id) && empty($createEcommerceInvoice)) {
+				$cmdDg = new Commande($db);
+				if ($cmdDg->fetch($object->origin_id) > 0 && !empty($cmdDg->fk_commande_fourn)) {
+					$dgInv = createInvoiceFromDgShipment($db, $user, $object, $cmdDg);
+					if (!empty($dgInv['ok']) && !empty($dgInv['facture_ref'])) {
+						setEventMessages('Factura Almacen DG creada: '.$dgInv['facture_ref'].' (costo + 10%)', null);
+					} elseif (!empty($dgInv['error']) && empty($dgInv['skipped'])) {
+						setEventMessages('Envío OK, pero no se generó factura DG: '.$dgInv['error'], null, 'warnings');
 					}
 				}
 			}

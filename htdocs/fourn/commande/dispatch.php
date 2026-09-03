@@ -43,6 +43,7 @@ require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.dispatch.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/class/productbatch.class.php';
+require_once DOL_DOCUMENT_ROOT . '/product/functions.php';
 if (!empty($conf->projet->enabled))
 	require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
 
@@ -710,7 +711,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<tr class="liste_titre">';
 
 				//Checkbox General (Todos los Productos)
-				if($object->socid != $conf->global->{'CEDIS_SUPPLIER'}) print '<td ><input type="checkbox" name="checkAll" id="checkAll"></td>';
+				if(!isInternalHubSupplier($object->socid)) print '<td ><input type="checkbox" name="checkAll" id="checkAll"></td>';
 
 				print '<td>'.$langs->trans("Description").'</td>';
 				// if (!empty($conf->productbatch->enabled))
@@ -807,7 +808,7 @@ if ($id > 0 || !empty($ref)) {
 						}
 
 						//Checkbox Individual para Cada Producto
-						if($object->socid != $conf->global->{'CEDIS_SUPPLIER'}){
+						if(!isInternalHubSupplier($object->socid)){
 							print '<td ><input type="checkbox" class="chkInd" name="' . $objp->fk_product . '_' . $objp->qty . '" value="' . $objp->fk_product . '" ';
 							//Si su cantidad a enviar es >= a 0, o tiene relacionado un OC en su descripción, no se puede seleccionar
 							if ($remaintodispatch <= 0 || $ocOrig->id > 0) {
@@ -863,7 +864,7 @@ if ($id > 0 || !empty($ref)) {
 
 						print '</tr>';
 
-						if($object->socid != $conf->global->{'CEDIS_SUPPLIER'}){
+						if(!isInternalHubSupplier($object->socid)){
 
 							print '<tr class="oddeven" name="' . $type . $suffix . '">';
 							print '<td>';
@@ -986,7 +987,7 @@ if ($id > 0 || !empty($ref)) {
 		print "</table>\n";
 		print '</div>';
 
-		if ($nbproduct && $object->socid != $conf->global->{'CEDIS_SUPPLIER'}) { 
+		if ($nbproduct && !isInternalHubSupplier($object->socid)) { 
 			print '<div class="center">';
 			$parameters = array();
 			$reshook = $hookmanager->executeHooks('addMoreActionsButtons', $parameters, $object, $action); // Note that $action and $object may have been
