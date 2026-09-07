@@ -129,6 +129,14 @@ if($db->num_rows($result1)>0){
 	$proveedortest=$data->rowid;
 }
 
+// Stock del hub a mostrar/filtrar: CEDIS por defecto, Almacen DG si ese proveedor está seleccionado
+$hubWhId = !empty($conf->global->CEDIS_WAREHOUSE) ? (int) $conf->global->CEDIS_WAREHOUSE : 29;
+$hubStockLabel = 'Stock CEDIS';
+if (!empty($fk_supplier) && isAlmacenDgSupplier($fk_supplier) && !empty($conf->global->DG_WAREHOUSE)) {
+	$hubWhId = (int) $conf->global->DG_WAREHOUSE;
+	$hubStockLabel = 'Stock Almacen DG';
+}
+
 // Create orders
 if ($action == 'order' && isset($_POST['valid']))
 {
@@ -232,7 +240,7 @@ if ($action == 'order' && isset($_POST['valid']))
 				$supplierpriceid = $proveedortest;
 				//get all the parameters needed to create a line
 				$qty = GETPOST('tobuy'.$i, 'int');
-				if ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE && !isAlmacenDgSupplier($fk_supplier)) {
+				if ($fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
 					$cedis_available = max(0, (int) GETPOST('cedis_stock'.$i, 'int'));
 					if ($qty > $cedis_available) {
 						$qty = $cedis_available;
@@ -442,23 +450,22 @@ $sql .= ' pw.fk_product,';
 $sql .= ' IFNULL(s.reel,0) AS stock_physique,';
 // Virtual stock
 $sql .= ' IFNULL(s.reel, 0) as virtual_stock,';
-// Stock CEDIS
-//- (IFNULL(stats_commande.qty, 0) - IFNULL(stats_sending.qty, 0) * -1) 
-$sql .= ' IFNULL(stock_cedis.reel, 0) AS stock_cedis,';
+// Stock hub (CEDIS / Almacen DG)
+$sql .= ' IFNULL(MAX(stock_cedis.reel), 0) AS stock_cedis,';
 $sql .= ' IFNULL(pw.stock_max, 0) AS stock_max,';
 
-// all stock, stock reorder and all stock max 
-$sql .= ' all_stock.stock AS all_stock, all_stock_reorder.stock_reorder AS all_stock_reorder, all_stock_max.stock_max AS all_stock_max, st.datem AS fecha_mov,';
+// all stock, stock reorder and all stock max
+$sql .= ' MAX(all_stock.stock) AS all_stock, MAX(all_stock_reorder.stock_reorder) AS all_stock_reorder, MAX(all_stock_max.stock_max) AS all_stock_max, MAX(st.datem) AS fecha_mov,';
 
 // Stock Alerts and Desired by Warehouse
 $sql .= ' IF(pw.seuil_stock_alerte IS NULL, 0, pw.seuil_stock_alerte) as alerte_warehouse,';
 $sql .= ' IF(pw.desiredstock IS NULL, 0, pw.desiredstock) as desiredstock_warehouse,';
 
-// Row needed for HAVING clause
-$sql .= ' pr.commandes_cli, pr.expeditions_cli, pr.commandes_fourn, pr.production_to_produce, pr.production_to_consume,';
-$sql .= ' stats_commande.nb_customers AS nb_customers_commande, stats_commande.nb AS nb_commande,';
-$sql .= ' stats_commande.nb_rows AS nb_rows_commande, stats_commande.qty AS qty_commande, stats_sending.nb_customers AS nb_customers_sending,';
-$sql .= ' stats_sending.nb AS nb_sending,stats_sending.nb_rows AS nb_rows_sending, stats_sending.qty AS qty_sending';
+// Row needed for HAVING clause (MAX compatible with ONLY_FULL_GROUP_BY)
+$sql .= ' MAX(pr.commandes_cli) AS commandes_cli, MAX(pr.expeditions_cli) AS expeditions_cli, MAX(pr.commandes_fourn) AS commandes_fourn, MAX(pr.production_to_produce) AS production_to_produce, MAX(pr.production_to_consume) AS production_to_consume,';
+$sql .= ' MAX(stats_commande.nb_customers) AS nb_customers_commande, MAX(stats_commande.nb) AS nb_commande,';
+$sql .= ' MAX(stats_commande.nb_rows) AS nb_rows_commande, MAX(stats_commande.qty) AS qty_commande, MAX(stats_sending.nb_customers) AS nb_customers_sending,';
+$sql .= ' MAX(stats_sending.nb) AS nb_sending, MAX(stats_sending.nb_rows) AS nb_rows_sending, MAX(stats_sending.qty) AS qty_sending';
 
 // Add fields from hooks
 $parameters = array();
@@ -480,8 +487,8 @@ $sql .= ' LEFT JOIN (SELECT st.fk_product, MAX(st.datem) AS datem FROM '. MAIN_D
 
 // JOINS for virtual stock, stock reorder, load stats commande and sending
 $sql .= ' LEFT JOIN (SELECT fk_product, SUM(commandes_cli) AS commandes_cli, SUM(expeditions_cli) AS expeditions_cli, SUM(commandes_fourn) AS commandes_fourn, SUM(production_to_produce) AS production_to_produce, SUM(production_to_consume) AS production_to_consume FROM llx_product_replenish GROUP BY fk_product) pr ON pr.fk_product = p.rowid';
-// Stock CEDIS
-$sql .= ' LEFT JOIN (SELECT ps.fk_product, ps.reel FROM llx_product_stock ps JOIN llx_entrepot e ON ps.fk_entrepot = e.rowid WHERE e.rowid = 29 AND e.entity IN (1)) stock_cedis ON stock_cedis.fk_product = p.rowid';
+// Stock hub (CEDIS o Almacen DG según proveedor seleccionado)
+$sql .= ' LEFT JOIN (SELECT ps.fk_product, ps.reel FROM llx_product_stock ps JOIN llx_entrepot e ON ps.fk_entrepot = e.rowid WHERE e.rowid = '.(int) $hubWhId.' AND e.entity IN (1)) stock_cedis ON stock_cedis.fk_product = p.rowid';
 $sql .= ' LEFT JOIN (SELECT cd.fk_product, COUNT(DISTINCT c.fk_soc) AS nb_customers, COUNT(DISTINCT c.rowid) AS nb, COUNT(cd.rowid) AS nb_rows, IFNULL(SUM(cd.qty), 0) AS qty FROM llx_commandedet cd LEFT JOIN llx_commande c ON cd.fk_commande = c.rowid WHERE c.entity IN (1) AND c.fk_statut in (1, 2) GROUP BY cd.fk_product) stats_commande ON stats_commande.fk_product = p.rowid';
 $sql .= ' LEFT JOIN (SELECT cd.fk_product, COUNT(DISTINCT e.fk_soc) AS nb_customers, COUNT(DISTINCT e.rowid) AS nb, COUNT(ed.rowid) AS nb_rows, IFNULL(SUM(ed.qty), 0) AS qty FROM llx_expeditiondet ed LEFT JOIN llx_commandedet cd ON ed.fk_origin_line = cd.rowid LEFT JOIN llx_commande c ON c.rowid = cd.fk_commande LEFT JOIN llx_expedition e ON e.rowid = ed.fk_expedition WHERE e.entity IN (1) AND c.fk_statut in (1, 2) AND e.fk_statut IN (1, 2) GROUP BY cd.fk_product) stats_sending ON stats_sending.fk_product = p.rowid';
 
@@ -583,22 +590,18 @@ if (!empty($conf->global->STOCK_ALLOW_ADD_LIMIT_STOCK_BY_WAREHOUSE) && $fk_entre
 	$sql .= ', pse.desiredstock';
 	$sql .= ', pse.seuil_stock_alerte';
 }
-$sql .= ', fecha_mov';
-$sql .= ', pw.fk_product, s.reel, ent.rowid,pw.stock_max';
+$sql .= ', pw.fk_product, s.reel, ent.rowid, pw.stock_max, ent.ref';
+$sql .= ', p.desiredstock_principal, p.desiredstock_gpe';
 if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
 	$sql .= ' HAVING ((virtual_stock > 0 OR stock_physique > 0) AND stock_cedis > 0)';
 }else{
 	$sql .= ' HAVING ((virtual_stock >= 0 OR stock_physique >= 0) AND stock_cedis > 0)';
 }
-//? Ignorar los productos que tienen envios pendientes, pedidios y facturas
-// $sql .= ' AND ((pw.desiredstock >= 0 AND (pw.desiredstock >= stock_physique - (pr.commandes_cli - pr.expeditions_cli) + (pr.commandes_fourn - 0) + (pr.production_to_produce - pr.production_to_consume)))';
-// $sql .= ' OR (pw.seuil_stock_alerte >= 0 AND (pw.seuil_stock_alerte >= stock_physique - (pr.commandes_cli - pr.expeditions_cli) + (pr.commandes_fourn - 0) + (pr.production_to_produce - pr.production_to_consume))))';
-
-// If $objp->stock_max - ($stock + $objp->all_stock) < 0, then not show
+// Need stock vs max (usar alias del SELECT — compatible ONLY_FULL_GROUP_BY)
 if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
-	$sql .= ' AND (IFNULL(pw.stock_max, 0) - (IFNULL(s.reel, 0) + all_stock.stock)) > 0';
+	$sql .= ' AND (stock_max - (stock_physique + IFNULL(all_stock, 0))) > 0';
 }else{
-	$sql .= ' AND (IFNULL(pw.stock_max, 0) - IFNULL(s.reel, 0)) > 0';
+	$sql .= ' AND (stock_max - stock_physique) > 0';
 }
 
 if ($usevirtualstock)
@@ -636,7 +639,12 @@ $rc_total_pages = '';
 $sql .= $db->order($sortfield, $sortorder);
 $sql .= $db->plimit($limit + 1, $offset);
 $resql = $db->query($sql);
-$num = $db->num_rows($resql);
+if (!$resql) {
+	setEventMessages('Error en consulta de reaprovisionamiento: '.$db->lasterror(), null, 'errors');
+	$num = 0;
+} else {
+	$num = $db->num_rows($resql);
+}
 $rc_total_pages = $num;
 $i = 0;
 $helpurl = 'EN:Module_Stocks_En|FR:Module_Stock|';
@@ -696,17 +704,12 @@ print '<input type="hidden" name="slocation" value="'.$slocation.'">';
 print '<input type="hidden" name="salert" value="'.$salert.'">';
 print '<input type="hidden" name="draftorder" value="'.$draftorder.'">';
 print '<input type="hidden" name="mode" value="'.$mode.'">';
-if (!empty($conf->global->STOCK_ALLOW_ADD_LIMIT_STOCK_BY_WAREHOUSE))
-{
-	print '<div class="inline-block valignmiddle" style="padding-right: 20px;">';
-	print $langs->trans('Warehouse').' '.$formproduct->selectWarehouses($fk_entrepot, 'fk_entrepot', '', 1);
-	print '</div>';
-}
+
 $filter_warehouse = "";
 $show_empty_warehouse = 0;
-if($entrepot_id > 0 && ($entrepot_id != $conf->global->CEDIS_WAREHOUSE)){
+if ($entrepot_id > 0 && ($entrepot_id != $conf->global->CEDIS_WAREHOUSE)) {
 	$filter_warehouse = "fournisseur=1 AND nom IN ('CEDIS','Almacen DG')";
-}else{
+} else {
 	$filter_warehouse = "fournisseur=1";
 	$show_empty_warehouse = 1;
 }
@@ -720,7 +723,7 @@ $reshook = $hookmanager->executeHooks('printFieldPreListTitle', $parameters); //
 if (empty($reshook)) print $hookmanager->resPrint;
 
 print '<div class="inline-block valignmiddle">';
-print '<input class="button" type="submit" name="valid" value="'.$langs->trans('Select').'">';
+print '<input class="button" type="submit" name="button_search" value="'.$langs->trans('Select').'">';
 print '</div>';
 print '<div hidden>';
 print $langs->trans('Categorias').': ';
@@ -904,7 +907,7 @@ print_liste_field_titre('<input type="checkbox" onClick="toggle(this)" id="all_c
 print_liste_field_titre('Ref', $_SERVER["PHP_SELF"], 'p.ref', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Categorias', $_SERVER["PHP_SELF"], 'p.label', $param, '', '', $sortfield, $sortorder);
 print '<th class="liste_titre">Almacén</th>';
-print '<th class="liste_titre">Stock CEDIS</th>';
+print '<th class="liste_titre">'.$hubStockLabel.'</th>';
 if($entrepot_id > 0 && ($entrepot_id == $conf->global->CEDIS_WAREHOUSE)){
 	print '<th class="liste_titre">Stock Sucursales</th>';
 }
@@ -987,7 +990,7 @@ if($fk_supplier) {
 		if ($stocktobuy < 0) {
 			$stocktobuy = 0;
 		}
-		// Sucursales: no sugerir más de lo disponible en CEDIS
+		// Sucursales: no sugerir más de lo disponible en el hub (CEDIS / Almacen DG)
 		if ($objp->fk_entrepot != $conf->global->CEDIS_WAREHOUSE) {
 			$cedis_available = max(0, (int) $objp->stock_cedis);
 			if ($stocktobuy > $cedis_available) {

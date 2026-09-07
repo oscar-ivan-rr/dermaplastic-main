@@ -574,7 +574,7 @@ if (empty($reshook))
 				}
 			}
 
-			// Almacen DG: factura a sucursal a costo + 10% tras recepción/envío
+			// Almacen DG: factura a sucursal a costo + 10% tras envío del pedido
 			if ($object->id > 0 && !empty($object->origin_id) && empty($createEcommerceInvoice)) {
 				$cmdDg = new Commande($db);
 				if ($cmdDg->fetch($object->origin_id) > 0 && !empty($cmdDg->fk_commande_fourn)) {

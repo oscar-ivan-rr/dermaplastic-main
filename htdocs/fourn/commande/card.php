@@ -1097,7 +1097,9 @@ if (empty($reshook))
 							$object->generateDocument($object->modelpdf, $outputlangs, $hidedetails, $hidedesc, $hideref);
 						}
 
-						setEventMessages("Pedido a CEDIS creado con éxito", null);
+						$isDg = isAlmacenDgSupplier($object->socid);
+						$hubLabel = $isDg ? 'Almacen DG' : 'CEDIS';
+						setEventMessages('Pedido a '.$hubLabel.' creado con éxito ('.$commande->ref.')', null);
 
 						header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
 						exit;

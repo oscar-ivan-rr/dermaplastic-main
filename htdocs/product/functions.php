@@ -189,6 +189,27 @@ function isSucursalWarehouse($db, $entrepot_id)
 }
 
 /**
+ * True if customer order already has a linked customer invoice (DG flow).
+ *
+ * @param DoliDB $db
+ * @param int    $commande_id
+ * @return bool
+ */
+function dgOrderAlreadyHasInvoice($db, $commande_id)
+{
+	$commande_id = (int) $commande_id;
+	if ($commande_id <= 0) {
+		return false;
+	}
+	$sql = "SELECT ee.rowid FROM ".MAIN_DB_PREFIX."element_element AS ee"
+		." WHERE (ee.fk_source = ".$commande_id." AND ee.sourcetype = 'commande' AND ee.targettype = 'facture')"
+		." OR (ee.fk_target = ".$commande_id." AND ee.targettype = 'commande' AND ee.sourcetype = 'facture')"
+		." LIMIT 1";
+	$res = $db->query($sql);
+	return ($res && $db->num_rows($res) > 0);
+}
+
+/**
  * Factura de venta a la sucursal por envío desde Almacen DG (costo + 10%).
  * No mueve stock (ya salió en el envío / dispatch).
  *
@@ -216,6 +237,12 @@ function createInvoiceFromDgShipment($db, $user, $expedition, $commande)
 
 	$po = new CommandeFournisseur($db);
 	if ($po->fetch((int) $commande->fk_commande_fourn) <= 0 || !isAlmacenDgSupplier($po->socid)) {
+		$result['skipped'] = true;
+		$result['ok'] = true;
+		return $result;
+	}
+
+	if (!empty($commande->id) && dgOrderAlreadyHasInvoice($db, $commande->id)) {
 		$result['skipped'] = true;
 		$result['ok'] = true;
 		return $result;
