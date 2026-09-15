@@ -422,16 +422,16 @@ if ($num)
 		print '<td class="right">'.price2num($obj->stockqty, 5).'</td>';
 		if (!$i) $totalarray['nbfield']++;
 
-		// PMP value
-		$total_pmp = $obj->estimatedvalue_noexento + $obj->estimatedvalue_exento + ($obj->estimatedvalue_noexento * 0.16);
+		// PMP value (sin IVA)
+		$total_pmp = $obj->estimatedvalue_noexento + $obj->estimatedvalue_exento;
 		print '<td class="right">';
 		print price(price2num($total_pmp, 'MT'), 1);
 		print '</td>';
 		$total += $total_pmp;
 		if (!$i) $totalarray['nbfield']++;
 
-		// Selling value
-		$total_selling_value = $obj->sellvalue_noexento + $obj->sellvalue_exento + ($obj->sellvalue_noexento * 0.16);
+		// Selling value (sin IVA)
+		$total_selling_value = $obj->sellvalue_noexento + $obj->sellvalue_exento;
 		print '<td class="right">';
 		if (empty($conf->global->PRODUIT_MULTIPRICES)) print price(price2num($total_selling_value, 'MT'), 1);
 		else
