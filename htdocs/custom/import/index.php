@@ -18,6 +18,34 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/import/class/import.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/import/class/societe.massupdate.php';
 
+/**
+ * Normaliza un nombre de almacén para comparación tolerante a encoding (Excel Latin-1)
+ * y a acentos (Mónica == Monica).
+ *
+ * @param string $value
+ * @return string
+ */
+function importNormalizeWarehouseKey($value)
+{
+	$value = trim((string) $value);
+	if ($value === '') {
+		return '';
+	}
+	// Excel suele guardar CSV en Windows-1252; la BD usa UTF-8
+	if (!mb_check_encoding($value, 'UTF-8')) {
+		$value = mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+	}
+	$value = mb_strtoupper($value, 'UTF-8');
+	if (class_exists('Normalizer')) {
+		$normalized = Normalizer::normalize($value, Normalizer::FORM_D);
+		if ($normalized !== false) {
+			$value = preg_replace('/\p{Mn}/u', '', $normalized);
+		}
+	}
+	$value = preg_replace('/\s+/', ' ', $value);
+	return trim($value);
+}
+
 $element       = GETPOST('element', 'alpha');
 $type          = GETPOST("type", 'int');
 $action        = GETPOST('action', 'alpha');
@@ -334,17 +362,30 @@ else if ($action == 'update_stock_levels') {
 		if (dol_add_file_process($conf->mycompany->dir_temp, 1, -1, 'file_xsl', '', null, '', 0, false) > 0) {
 			$filepath = $conf->mycompany->dir_temp . "/$file_name";
 
-			if (false === ($gestor = fopen($filepath, "r"))) {
+			$content = @file_get_contents($filepath);
+			if ($content === false) {
 				setEventMessage('Error al abrir el archivo', 'errors');
 				return;
 			}
+			// BOM UTF-8 y CSV de Excel en Windows-1252 (acentos como ó = 0xF3)
+			$content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+			if (!mb_check_encoding($content, 'UTF-8')) {
+				$content = mb_convert_encoding($content, 'UTF-8', 'Windows-1252');
+			}
+			if (false === ($gestor = fopen('php://temp', 'r+'))) {
+				setEventMessage('Error al abrir el archivo', 'errors');
+				return;
+			}
+			fwrite($gestor, $content);
+			rewind($gestor);
 
 			// Precargar almacenes (ref normalizado -> rowid) en un solo query
 			$warehouseMap = array();
 			$resql_w = $db->query("SELECT rowid, ref FROM ".MAIN_DB_PREFIX."entrepot");
 			if ($resql_w) {
 				while ($o = $db->fetch_object($resql_w)) {
-					$warehouseMap[strtoupper(trim($o->ref))] = (int) $o->rowid;
+					$key = importNormalizeWarehouseKey($o->ref);
+					if ($key !== '') $warehouseMap[$key] = (int) $o->rowid;
 				}
 			}
 
@@ -375,9 +416,6 @@ else if ($action == 'update_stock_levels') {
 				if ($isFirstRow) { $isFirstRow = false; continue; }
 				if (count($register) < 5) continue;
 
-				// BOM UTF-8 que Excel suele agregar a la primera celda
-				$register[0] = preg_replace('/^\xEF\xBB\xBF/', '', $register[0]);
-
 				$warehouseRef = trim($register[0]);
 				$barcode      = trim($register[1]);
 				$stock_min    = $register[2];
@@ -393,7 +431,7 @@ else if ($action == 'update_stock_levels') {
 					$rowError = 'Valor negativo';
 				}
 
-				$warehouseKey = strtoupper($warehouseRef);
+				$warehouseKey = importNormalizeWarehouseKey($warehouseRef);
 				$barcodeKey   = preg_replace('/[^a-zA-Z0-9]/', '', $barcode);
 
 				if ($rowError === '' && !isset($warehouseMap[$warehouseKey])) {
