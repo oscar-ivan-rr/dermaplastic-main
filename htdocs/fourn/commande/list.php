@@ -595,6 +595,9 @@ $sql .= $hookmanager->resPrint;
 
 $sql .= $db->order($sortfield, $sortorder);
 
+// SQL sin paginación para exportar todos los resultados filtrados
+$sql_export = $sql;
+
 $nbtotalofrecords = '';
 if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
 {
@@ -683,10 +686,24 @@ if ($resql)
 	$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
 
 	$newcardbutton = '';
+	$newcardbutton .= dolGetButtonTitle($langs->trans('Exportar Listado'), '', 'fa fa-file-excel-o', '', 'exportar', 1);
 	if ($user->rights->fournisseur->commande->creer)
 	{
         $newcardbutton .= dolGetButtonTitle($langs->trans('NewOrder'), '', 'fa fa-plus-circle', DOL_URL_ROOT.'/fourn/commande/card.php?action=create');
     }
+
+	print '<form method="POST" id="FormularioExportacion" action="export_xlsx.php">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="sql" value="'.dol_escape_htmltag(base64_encode($sql_export)).'">';
+	print '</form>';
+	print '<script type="text/javascript">
+	$(document).ready(function() {
+		$("#exportar").on("click", function(e) {
+			e.preventDefault();
+			$("#FormularioExportacion").submit();
+		});
+	});
+	</script>';
 
 	// Fields title search
 	print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';

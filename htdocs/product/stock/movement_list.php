@@ -131,6 +131,8 @@ $arrayfields = array(
     'm.label'=>array('label'=>$langs->trans("MovementLabel"), 'checked'=>1),
     'm.type_mouvement'=>array('label'=>$langs->trans("TypeMovement"), 'checked'=>1),
     'origin'=>array('label'=>$langs->trans("Origin"), 'checked'=>1),
+    'supplier'=>array('label'=>$langs->trans("Supplier"), 'checked'=>1),
+    'supplier_invoice'=>array('label'=>'Folio factura proveedor', 'checked'=>1),
 	'm.value'=>array('label'=>$langs->trans("Qty"), 'checked'=>1),
 	'm.price'=>array('label'=>$langs->trans("UnitPurchaseValue"), 'checked'=>0),
     'subtotal'=>array('label'=>$langs->trans("Subtotal"), 'checked'=>1),
@@ -599,7 +601,9 @@ $sql .= " IF(p.exentoiva = 0, ABS((m.price * 0.16 * m.value) + (m.value * m.pric
 $sql .= " m.type_mouvement,";
 $sql .= " m.fk_projet as fk_project,";
 $sql .= " pl.rowid as lotid, pl.eatby, pl.sellby,";
-$sql .= " u.login, u.photo, u.lastname, u.firstname";
+$sql .= " u.login, u.photo, u.lastname, u.firstname,";
+$sql .= " COALESCE(s_inv.nom, supp_from_order.supplier_name) as supplier_name,";
+$sql .= " COALESCE(NULLIF(ff_inv.ref_supplier, ''), ff_inv.ref, NULLIF(supp_from_order.folio_supplier, ''), supp_from_order.folio_internal) as supplier_invoice_folio";
 // Add fields from extrafields
 if (!empty($extrafields->attributes[$object->table_element]['label'])) {
 	foreach ($extrafields->attributes[$object->table_element]['label'] as $key => $val) $sql .= ($extrafields->attributes[$object->table_element]['type'][$key] != 'separate' ? ", ef.".$key.' as options_'.$key : '');
@@ -614,6 +618,20 @@ $sql .= " ".MAIN_DB_PREFIX."stock_mouvement as m";
 if (is_array($extrafields->attributes[$object->table_element]['label']) && count($extrafields->attributes[$object->table_element]['label'])) $sql .= " LEFT JOIN ".MAIN_DB_PREFIX.$object->table_element."_extrafields as ef on (m.rowid = ef.fk_object)";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON m.fk_user_author = u.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_lot as pl ON m.batch = pl.batch AND m.fk_product = pl.fk_product AND m.sellby = pl.sellby AND m.eatby = pl.eatby";
+// Proveedor / folio factura proveedor (si el movimiento viene de factura o recepción de pedido proveedor)
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."facture_fourn as ff_inv ON m.origintype = 'invoice_supplier' AND m.fk_origin = ff_inv.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s_inv ON s_inv.rowid = ff_inv.fk_soc";
+$sql .= " LEFT JOIN (";
+$sql .= " SELECT cfd.rowid as cfd_id, MAX(s.nom) as supplier_name,";
+$sql .= " GROUP_CONCAT(DISTINCT NULLIF(ff.ref_supplier, '') ORDER BY ff.rowid SEPARATOR ', ') as folio_supplier,";
+$sql .= " GROUP_CONCAT(DISTINCT ff.ref ORDER BY ff.rowid SEPARATOR ', ') as folio_internal";
+$sql .= " FROM ".MAIN_DB_PREFIX."commande_fournisseurdet as cfd";
+$sql .= " INNER JOIN ".MAIN_DB_PREFIX."commande_fournisseur as cf ON cf.rowid = cfd.fk_commande";
+$sql .= " INNER JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = cf.fk_soc";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."element_element as ee ON ee.fk_source = cf.rowid AND ee.sourcetype = 'order_supplier' AND ee.targettype = 'invoice_supplier'";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."facture_fourn as ff ON ff.rowid = ee.fk_target";
+$sql .= " GROUP BY cfd.rowid";
+$sql .= ") as supp_from_order ON m.origintype = 'commande_fournisseurdet' AND m.fk_origin = supp_from_order.cfd_id";
 $sql .= " WHERE m.fk_product = p.rowid";
 if ($msid > 0) $sql .= " AND m.rowid = ".$msid;
 $sql .= " AND m.fk_entrepot = e.rowid";
@@ -1189,6 +1207,14 @@ if ($resql)
 	    print '&nbsp; ';
 	    print '</td>';
     }
+    if (!empty($arrayfields['supplier']['checked']))
+    {
+	    print '<td class="liste_titre left">&nbsp;</td>';
+    }
+    if (!empty($arrayfields['supplier_invoice']['checked']))
+    {
+	    print '<td class="liste_titre left">&nbsp;</td>';
+    }
     if (!empty($arrayfields['m.value']['checked']))
     {
 	    // Qty
@@ -1303,6 +1329,12 @@ if ($resql)
     }
     if (!empty($arrayfields['origin']['checked'])) {
         print_liste_field_titre($arrayfields['origin']['label'], $_SERVER["PHP_SELF"], "", "", $param, "", $sortfield, $sortorder);
+    }
+    if (!empty($arrayfields['supplier']['checked'])) {
+        print_liste_field_titre($arrayfields['supplier']['label'], $_SERVER["PHP_SELF"], "supplier_name", "", $param, "", $sortfield, $sortorder);
+    }
+    if (!empty($arrayfields['supplier_invoice']['checked'])) {
+        print_liste_field_titre($arrayfields['supplier_invoice']['label'], $_SERVER["PHP_SELF"], "supplier_invoice_folio", "", $param, "", $sortfield, $sortorder);
     }
     if (!empty($arrayfields['m.value']['checked'])) {
         print_liste_field_titre($arrayfields['m.value']['label'], $_SERVER["PHP_SELF"], "m.value", "", $param, '', $sortfield, $sortorder, 'right ');
@@ -1512,6 +1544,16 @@ if ($resql)
         {
         	// Origin of movement
         	print '<td class="nowraponall">'.$origin.'</td>';
+            if (!$i) $totalarray['nbfield']++;
+        }
+        if (!empty($arrayfields['supplier']['checked']))
+        {
+        	print '<td class="tdoverflowmax200">'.dol_escape_htmltag($objp->supplier_name).'</td>';
+            if (!$i) $totalarray['nbfield']++;
+        }
+        if (!empty($arrayfields['supplier_invoice']['checked']))
+        {
+        	print '<td class="nowraponall">'.dol_escape_htmltag($objp->supplier_invoice_folio).'</td>';
             if (!$i) $totalarray['nbfield']++;
         }
         if (!empty($arrayfields['m.value']['checked']))

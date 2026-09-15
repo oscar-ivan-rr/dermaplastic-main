@@ -59,16 +59,18 @@ $headers = array(
 	'F1' => 'Autor',
 	'G1' => 'Etiqueta de Movimiento',
 	'H1' => 'Tipo',
-	'I1' => 'Cantidad',
-	'J1' => 'Precio de Compra',
-	'K1' => 'Subtotal',
-	'L1' => 'IVA',
-	'M1' => 'Total',
+	'I1' => 'Proveedor',
+	'J1' => 'Folio factura proveedor',
+	'K1' => 'Cantidad',
+	'L1' => 'Precio de Compra',
+	'M1' => 'Subtotal',
+	'N1' => 'IVA',
+	'O1' => 'Total',
 );
 foreach ($headers as $cell => $label) {
 	$sheet->setCellValue($cell, $label);
 }
-$sheet->getStyle('A1:M1')->getFont()->setBold(true);
+$sheet->getStyle('A1:O1')->getFont()->setBold(true);
 
 $rowCount = 2;
 $subtotal = 0.0;
@@ -103,11 +105,13 @@ while ($row = $db->fetch_object($resql)) {
 	$sheet->setCellValue('F'.$rowCount, $author);
 	$sheet->setCellValue('G'.$rowCount, $row->label);
 	$sheet->setCellValue('H'.$rowCount, $type);
-	$sheet->setCellValueExplicit('I'.$rowCount, $qty, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-	$sheet->setCellValueExplicit('J'.$rowCount, $price, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-	$sheet->setCellValueExplicit('K'.$rowCount, $rowSubtotal, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-	$sheet->setCellValueExplicit('L'.$rowCount, $rowTva, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-	$sheet->setCellValueExplicit('M'.$rowCount, $rowTotal, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+	$sheet->setCellValue('I'.$rowCount, isset($row->supplier_name) ? $row->supplier_name : '');
+	$sheet->setCellValue('J'.$rowCount, isset($row->supplier_invoice_folio) ? $row->supplier_invoice_folio : '');
+	$sheet->setCellValueExplicit('K'.$rowCount, $qty, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+	$sheet->setCellValueExplicit('L'.$rowCount, $price, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+	$sheet->setCellValueExplicit('M'.$rowCount, $rowSubtotal, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+	$sheet->setCellValueExplicit('N'.$rowCount, $rowTva, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+	$sheet->setCellValueExplicit('O'.$rowCount, $rowTotal, PHPExcel_Cell_DataType::TYPE_NUMERIC);
 
 	$subtotal += $rowSubtotal;
 	$tva += $rowTva;
@@ -119,15 +123,15 @@ $db->free($resql);
 
 $sheet->setCellValue('A'.$rowCount, 'Total');
 $sheet->getStyle('A'.$rowCount)->getFont()->setBold(true);
-$sheet->setCellValueExplicit('K'.$rowCount, $subtotal, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-$sheet->setCellValueExplicit('L'.$rowCount, $tva, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-$sheet->setCellValueExplicit('M'.$rowCount, $total, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-$sheet->getStyle('A'.$rowCount.':M'.$rowCount)->getFont()->setBold(true);
+$sheet->setCellValueExplicit('M'.$rowCount, $subtotal, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+$sheet->setCellValueExplicit('N'.$rowCount, $tva, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+$sheet->setCellValueExplicit('O'.$rowCount, $total, PHPExcel_Cell_DataType::TYPE_NUMERIC);
+$sheet->getStyle('A'.$rowCount.':O'.$rowCount)->getFont()->setBold(true);
 
-$sheet->getStyle('J2:M'.$rowCount)->getNumberFormat()->setFormatCode('#,##0.00');
-$sheet->getStyle('I2:I'.$rowCount)->getNumberFormat()->setFormatCode('#,##0.####');
+$sheet->getStyle('L2:O'.$rowCount)->getNumberFormat()->setFormatCode('#,##0.00');
+$sheet->getStyle('K2:K'.$rowCount)->getNumberFormat()->setFormatCode('#,##0.####');
 
-foreach (range('A', 'M') as $col) {
+foreach (range('A', 'O') as $col) {
 	$sheet->getColumnDimension($col)->setAutoSize(true);
 }
 
