@@ -740,7 +740,7 @@ if(parseInt($("#line_discount").val()) == 0 || $("#line_discount").val() == '')
 		if(_TPV.ticket.checkApplyQuantity(idProduct,$('#line_quantity').val()))
 		{
 			line.setQuantity($('#line_quantity').val());
-			line.setDiscount($('#line_discount').val());
+			line.setDiscount($('#line_discount').val(), true);
 			line.setPrice($('#line_price').val());
 			line.setNote($('#line_note').val());
 			line.setQtyEnt($('#line_qty_ent').val());
@@ -1627,11 +1627,10 @@ if(parseInt($("#line_discount").val()) == 0 || $("#line_discount").val() == '')
 		}
 		showTicketContent();
 		_TPV.ticket.calculeTotal();console.log("Descuentos");
-		//Recuperar descuentos
+		//Recuperar descuentos: solo si 0% no fue puesto a mano
 		_TPV.ticket.lines.forEach(function(line){console.log(line.discount);
-			if(line.discount == 0){
-				line.setDiscount(0);
-				line.setDiscount(_TPV.discount);
+			if(line.discount == 0 && !line.discount_manual){
+				line.setDiscount(_TPV.discount, false);
 				line.showTotal();
 			}
 		});
@@ -1700,7 +1699,7 @@ if(parseInt($("#line_discount").val()) == 0 || $("#line_discount").val() == '')
 								if(res["allow"] && parseInt(res['desc'])>parseInt($("#ticket_discount_perc").val()) && res['error'] == 0) {
 									//if(parseInt(res["desc"]) >= parseInt($("#line_discount").val()))
 									$.each(data,function(i,e){
-										_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val());
+										_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val(), true);
 										_TPV.ticket.getLine(parseInt(e["prod_id"])).showTotal();
 									});
 									hideLeftContent();
@@ -1717,7 +1716,7 @@ if(parseInt($("#line_discount").val()) == 0 || $("#line_discount").val() == '')
 						}
 						else {
 							$.each(data,function(i,e){
-								_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val());
+								_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val(), true);
 								_TPV.ticket.getLine(parseInt(e["prod_id"])).showTotal();
 							});
 							hideLeftContent();
@@ -1732,7 +1731,7 @@ if(parseInt($("#line_discount").val()) == 0 || $("#line_discount").val() == '')
 				else
 				{
 					$.each(data,function(i,e){
-						_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val());
+						_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val(), true);
 						_TPV.ticket.getLine(parseInt(e["prod_id"])).showTotal();
 					});
 					hideLeftContent();
@@ -1772,7 +1771,7 @@ if(parseInt($("#line_discount").val()) == 0 || $("#line_discount").val() == '')
 			data.push(row);
 		});
 		$.each(data,function(i,e){
-			_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val());
+			_TPV.ticket.getLine(parseInt(e["prod_id"])).setDiscount($('#ticket_discount_perc').val(), true);
 			_TPV.ticket.getLine(parseInt(e["prod_id"])).showTotal();
 		});
 		/*_TPV.ticket.discount_percent = $('#ticket_discount_perc').val();
@@ -2334,6 +2333,7 @@ var TicketLine = jQuery.Class({
 		this.label = '';
 		this.description = '';
 		this.discount = 0;
+		this.discount_manual = false;
 		this.cant = 1;
 		this.idTicket = 0;
 		this.localtax1_tx = 0;
@@ -2554,6 +2554,7 @@ var TicketLine = jQuery.Class({
 		this.stock = product.stock;
 		this.label = line.label;
 		this.discount = 0;
+		this.discount_manual = false;
 		this.description = line.description;
 		this.localtax1_tx = line.localtax1_tx;
 		this.localtax2_tx = line.localtax2_tx;
@@ -2586,12 +2587,18 @@ var TicketLine = jQuery.Class({
 		number = parseFloat(qty_ent);
 		this.qty_ent = number;
 	},
-	setDiscount : function(discount){
+	setDiscount : function(discount, manual){
 		quantitydiscount = parseFloat(discount); 
-		if(quantitydiscount > 100 || quantitydiscount < 0)
+		if(isNaN(quantitydiscount) || quantitydiscount > 100 || quantitydiscount < 0)
 			quantitydiscount=0;
 		// Add Discount
 		this.discount = quantitydiscount;
+		// manual=true: el cajero fijó el % (incluye 0%); no reaplicar descuento base después
+		if (manual === true) {
+			this.discount_manual = true;
+		} else if (manual === false) {
+			this.discount_manual = false;
+		}
 	},
 	setPrice : function(new_price){
 		price = parseFloat(new_price);
@@ -2642,6 +2649,7 @@ var TicketLine = jQuery.Class({
 					var txt=ajaxDataSend('Translate','PriceMinError');
 					_TPV.showError(txt);
 					this.discount = 0;
+					this.discount_manual = false;
 				}else{
 					this.price = result["pu_ht"];
 					this.price_ttc = parseFloat(result["pu_ht"])+parseFloat(result["pu_tva"]);
@@ -2697,6 +2705,7 @@ var TicketLine = jQuery.Class({
 					var txt=ajaxDataSend('Translate','PriceMinError');
 					_TPV.showError(txt);
 					this.discount = 0;
+					this.discount_manual = false;
 				}
 				else{
 					this.price = result["pu_ht"];
@@ -2892,7 +2901,7 @@ var TPV = jQuery.Class({
 						var line = new TicketLine();
 						if (item["idProduct"] == dat["prod_id"] && dat["checked"] == "1") {
 							line.setLineByIdProducts(item["idProduct"]);
-							line.setDiscount(parseInt(item["discount"]));
+							line.setDiscount(parseInt(item["discount"]), true); // valor guardado (puede ser 0% manual)
 							line.setQtyEnt(item['cant']);
 							if(_TPV.ticket.type != 0)
 							{
@@ -2950,7 +2959,7 @@ var TPV = jQuery.Class({
 						var line = new TicketLine();
 						if (item["idProduct"] == dat["prod_id"] && dat["checked"] == "1") {
 							line.setLineByIdProducts(item["idProduct"]);
-							line.setDiscount(parseInt(item["discount"]));
+							line.setDiscount(parseInt(item["discount"]), true); // valor guardado (puede ser 0% manual)
 							//line.setPrice(parseInt(item["price_ttc"]));console.log(line);
 							_TPV.ticket.total = _TPV.ticket.total + line.total_ttc;
 							_TPV.ticket.setLine(item["idProduct"], line);
@@ -4133,13 +4142,12 @@ var TPV = jQuery.Class({
 						}
         	    	}
         	    });
-				//Recuperar descuentos
+				//Recuperar descuentos: no pisar 0% manual
 				console.log(_TPV.ticket.lines);
 				console.log("Descuentos");
 				_TPV.ticket.lines.forEach(function(line){console.log(line.discount)
-					if(line.discount == 0){
-						line.setDiscount(0);
-						line.setDiscount(item['discount_percent']);
+					if(line.discount == 0 && !line.discount_manual){
+						line.setDiscount(item['discount_percent'], false);
 						line.showTotal();
 					}
 				});

@@ -764,6 +764,8 @@ if ($action == "updateqty")
     foreach ($invoice->lines as $line)
     {
 		if ($line->id == $idline){
+			// Siempre conservar el % de la línea (incluye 0% manual). No usar $desc de GETPOST.
+			$lineRemisePercent = $line->remise_percent;
 			if ($user->rights->takepos->stock_verify){
 				$prod = new Product($db);
 				$prod->fetch($line->fk_product);
@@ -788,12 +790,11 @@ if ($action == "updateqty")
 				$rebatch = $db->query($sqlbatch);
 				$objb = $db->fetch_object($rebatch);
 
-				$desc = $line->remise_percent;
 				// Si tiene lote, revisamos que haya suficiente stock
 				if ($number <= ($prod->stock_reel - $obj->qty + $line->qty)) {
 					if ($number > ($objb->qty - $obj->qty + $line->qty)) {
 						$aux1 = $objb->qty;
-						$result = $invoice->updateline($line->id, $line->desc, $line->subprice, $aux1, $line->remise_percent, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+						$result = $invoice->updateline($line->id, $line->desc, $line->subprice, $aux1, $lineRemisePercent, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
 						$aux2 = $number - $aux1;
 						$fecha = dol_print_date($objb->eatby, 'dayrfc');
 
@@ -831,17 +832,19 @@ if ($action == "updateqty")
 								dol_htmloutput_errors("Stock insuficiente", null, 1);
 								break;
 							}
-							$result = $invoice->addline($prod->description, $price, $aux1, $tva_tx, $localtax1_tx, $localtax2_tx, $prod->id, $desc, '', 0, 0, 0, '', $price_base_type, $price_ttc, $prod->type, -1, 0, '', 0, 0, null, 0, '', 0, 100, '', null, 0, $obj->batch);
+							$result = $invoice->addline($prod->description, $price, $aux1, $tva_tx, $localtax1_tx, $localtax2_tx, $prod->id, $lineRemisePercent, '', 0, 0, 0, '', $price_base_type, $price_ttc, $prod->type, -1, 0, '', 0, 0, null, 0, '', 0, 100, '', null, 0, $obj->batch);
 							$sql = "UPDATE " . MAIN_DB_PREFIX . "facturedet_extrafields SET medico='N/A' WHERE fk_object=" . $result;
 							$resql = $db->query($sql);
 						}
 					} else {
-						$result = $invoice->updateline($line->id, $line->desc, $line->subprice, $number, $desc, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+						$result = $invoice->updateline($line->id, $line->desc, $line->subprice, $number, $lineRemisePercent, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
 					}
 				} else {
 					dol_htmloutput_errors("Stock insuficiente", null, 1);
 				}		
-			} else $result = $invoice->updateline($line->id, $line->desc, $line->subprice, $number, $desc, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+			} else {
+				$result = $invoice->updateline($line->id, $line->desc, $line->subprice, $number, $lineRemisePercent, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+			}
 		}
 	}
     $invoice->fetch($placeid);
@@ -860,6 +863,12 @@ if ($action == "updateprice")
 
     $invoice->fetch($placeid);
 }
+
+// =====================================================================
+// Al reactivar campañas de promo: incluir takepos/lib/discounts.lib.php y
+// NUNCA forzar el descuento base si takepos_is_manual_discount_below_base()
+// (protege el 0% u otro % bajado a mano; ver ticket HMFA2607-12159).
+// =====================================================================
 
 if ($action == "updatereduction")
 {
