@@ -19,11 +19,13 @@ require_once(DOL_DOCUMENT_ROOT . "/core/lib/date.lib.php");
 $error = 0;
 
 if( !empty($_POST['fk_socid']) && !empty($_POST['fk_facture'])){
+    require_once DOL_DOCUMENT_ROOT.'/custom/autofactura_ticket/lib/fecha_facturacion.lib.php';
     $email = $_POST['email'];
     #Datos de la factura dolibarr
     ob_start();
-    $sql   = " SELECT * FROM " . MAIN_DB_PREFIX . "facture WHERE rowid = " . $_POST['fk_facture'];
+    $sql   = " SELECT * FROM " . MAIN_DB_PREFIX . "facture WHERE rowid = " . ((int) $_POST['fk_facture']);
     $resql = $db->query($sql);
+    $fecha_venta_cfdi = '';
     if ($resql) {
         $num_fact = $db->num_rows($resql);
         $i        = 0;
@@ -31,6 +33,7 @@ if( !empty($_POST['fk_socid']) && !empty($_POST['fk_facture'])){
             while ($i < $num_fact) {
                 $obj       = $db->fetch_object($resql);
                 $ref = $obj->ref;
+                $fecha_venta_cfdi = $obj->datef;
                 $separafac = explode("-", $ref);
                 $serie     = $separafac[0];
                 $folio     = $separafac[1];
@@ -38,9 +41,20 @@ if( !empty($_POST['fk_socid']) && !empty($_POST['fk_facture'])){
             }
         }
     }
+
+    if ($fecha_venta_cfdi && !autofactura_ticket_puede_facturar($fecha_venta_cfdi)) {
+        ob_end_clean();
+        echo json_encode(array(
+            'error' => 1,
+            'error_message' => 'Fuera de fecha de timbrado. Solo se puede facturar durante el mes de la venta (límite: '.autofactura_ticket_fecha_limite($fecha_venta_cfdi).').',
+            'date_limit' => autofactura_ticket_fecha_limite($fecha_venta_cfdi),
+            'current_date' => autofactura_ticket_fecha_hoy(),
+        ));
+        return;
+    }
 //$soc_rfc='';
 #Datos del receptor
-    $sql = "SELECT * FROM  " . MAIN_DB_PREFIX . "facture f,  " . MAIN_DB_PREFIX . "societe s WHERE f.rowid = '" . $_POST['fk_facture'] . "' AND f.fk_soc = s.rowid";
+    $sql = "SELECT * FROM  " . MAIN_DB_PREFIX . "facture f,  " . MAIN_DB_PREFIX . "societe s WHERE f.rowid = '" . ((int) $_POST['fk_facture']) . "' AND f.fk_soc = s.rowid";
     $resql = $db->query($sql);
     if ($resql) {
         $soc_num = $db->num_rows($resql);

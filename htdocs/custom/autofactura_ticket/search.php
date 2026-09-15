@@ -5,13 +5,15 @@ $action = isset($_POST['action']) ? $_POST['action'] : '';
 
 if( isset($_POST['clave_factura']) ) {
     require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+    require_once DOL_DOCUMENT_ROOT . '/custom/autofactura_ticket/lib/fecha_facturacion.lib.php';
     $clave_factura = dol_sanitizeFileName(dol_string_nospecial($_POST['clave_factura']));
-    $current_date = date('Y-m-d');
+    $current_date = autofactura_ticket_fecha_hoy();
     $array_resultados = array();
     $timbrada = false;
     $found = false;
+    $fecha_venta = '';
     $sql = '';
-    $sql .= 'SELECT a.rowid as rowid, a.ref as ref, a.date_lim_reglement as date_lim, ';
+    $sql .= 'SELECT a.rowid as rowid, a.ref as ref, a.date_lim_reglement as date_lim, a.datef as datef, ';
     $sql .= 'a.multicurrency_total_ttc as monto_multicurrency, a.total_ttc as monto, b.fk_departement as fk_estado, ';
     $sql .= 'b.nom as nombre, b.zip as cp, b.email as email, a.fk_soc as fk_soc, b.siren as rfc ';
     $sql .= ', b.phone as phone '; 
@@ -29,6 +31,7 @@ if( isset($_POST['clave_factura']) ) {
             $row = $db->fetch_object($result);
             $monto_temp = $row->monto_multicurrency;
             if( $monto_temp == 0 ) $monto_temp = $row->monto;
+            $fecha_venta = $row->datef;
 
             $array_resultados[$i] = array(
                 'rowid' => $row->rowid,
@@ -189,11 +192,16 @@ if( isset($_POST['clave_factura']) ) {
         $array_resultados[$i+6] = $array_regimen;
         
     }
-    //$date_lim = date('Y-m-d', strtotime($auxiliar['date_lim']. ' + 3 days'));
-    $date_lim = date('Y-m-t'); //LAST DAY OF THE MONTH;
+    // Límite = último día del mes de la venta (no del mes actual)
+    $date_lim = $fecha_venta ? autofactura_ticket_fecha_limite($fecha_venta) : '';
     $array_resultados[$i+5] = array('date_lim'=>$date_lim,'current_date'=>$current_date);
-    if( ($current_date > $date_lim) && $found && !$timbrada ){
-        $json_resultado = json_encode(array('error' => 1, 'current_date' => $current_date, 'date_limit' => $date_lim));
+    if ($found && !$timbrada && $fecha_venta && !autofactura_ticket_puede_facturar($fecha_venta)) {
+        $json_resultado = json_encode(array(
+            'error' => 1,
+            'current_date' => $current_date,
+            'date_limit' => $date_lim,
+            'fecha_venta' => substr($fecha_venta, 0, 10),
+        ));
     }
     else if($timbrada){
         $json_resultado = json_encode(array('error' => 2, 'uuid' => $uuid, 'ref' => $clave_factura));

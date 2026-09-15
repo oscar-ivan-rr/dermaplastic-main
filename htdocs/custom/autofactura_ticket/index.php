@@ -305,7 +305,8 @@ require '../../master.inc.php';
                                 <i class="fa fa-clock fa-4x text-danger"></i>
                             </div>
                             <h5 class="mb-3">Fuera de fecha de timbrado</h5>
-                            <p class="text-muted mb-4">Este ticket ya no puede ser facturado porque ha expirado el plazo para su timbrado.</p>
+                            <p class="text-muted mb-4">Solo se puede facturar durante el mes de la venta. Si la venta fue el último día del mes, debe facturarse ese mismo día.</p>
+                            ${response.fecha_limite ? `<p class="text-muted mb-4"><strong>Fecha límite:</strong> ${response.fecha_limite}</p>` : ''}
                             <button type="button" class="btn btn-outline-primary" onclick="cancelar()">
                                 <i class="fa fa-arrow-left mr-2"></i> Volver
                             </button>
@@ -431,6 +432,25 @@ require '../../master.inc.php';
                     </div>`;
                     
                     contenedor.innerHTML = out;
+                }
+                else if (response.resultado === '4') {
+                    contenedor.innerHTML = `
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-danger text-white py-3">
+                            <h4 class="mb-0"><i class="fa fa-calendar-times"></i> Fuera de Fecha</h4>
+                        </div>
+                        <div class="card-body text-center py-4">
+                            <div class="mb-3">
+                                <i class="fa fa-clock fa-4x text-danger"></i>
+                            </div>
+                            <h5 class="mb-3">Fuera de fecha de timbrado</h5>
+                            <p class="text-muted mb-4">Solo se puede facturar durante el mes de la venta. Si la venta fue el último día del mes, debe facturarse ese mismo día.</p>
+                            ${response.fecha_limite ? `<p class="text-muted mb-4"><strong>Fecha límite:</strong> ${response.fecha_limite}</p>` : ''}
+                            <button type="button" class="btn btn-outline-primary" onclick="cancelar()">
+                                <i class="fa fa-arrow-left mr-2"></i> Volver
+                            </button>
+                        </div>
+                    </div>`;
                 }
                 else if (response.resultado === '-1') {
                     contenedor.innerHTML = `
@@ -754,10 +774,12 @@ require '../../master.inc.php';
                     `;
                 }
                 else if(data.error === 1){
+                    let limiteTxt = data.date_limit ? ` Fecha límite: ${data.date_limit}.` : '';
+                    let fueraMsg = 'Fuera de fecha de timbrado. Solo se puede facturar durante el mes de la venta.' + limiteTxt;
                     if(msg) {
-                        msg.innerHTML = 'Fuera de fecha de timbrado';
+                        msg.innerHTML = fueraMsg;
                     } else {
-                        contenedor.innerHTML = '<div class="alert alert-danger">Fuera de fecha de timbrado</div>';
+                        contenedor.innerHTML = '<div class="alert alert-danger">' + fueraMsg + '</div>';
                     }
                 }
                 else if(data.error === 2){
