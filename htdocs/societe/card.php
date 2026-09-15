@@ -463,6 +463,23 @@ if (empty($reshook))
             setEventMessages($langs->trans("ErrorFieldRequired", "categoria"), null, 'errors');
             $error++;
         }
+        // Birthday month/day required for customers
+        $isCustomerForm = (GETPOST('type', 'aZ') == 'c' || in_array((int) GETPOST('client', 'int'), array(1, 3)));
+        if ($isCustomerForm)
+        {
+            $cumpleanos_mes = GETPOST('options_cumpleanos_mes', 'alpha');
+            $cumpleanos_dia = GETPOST('options_cumpleanos_dia', 'alpha');
+            if ($cumpleanos_mes === '' || $cumpleanos_mes === '0')
+            {
+                setEventMessages($langs->trans("ErrorFieldRequired", "Mes de cumpleaños"), null, 'errors');
+                $error++;
+            }
+            if ($cumpleanos_dia === '' || $cumpleanos_dia === '0')
+            {
+                setEventMessages($langs->trans("ErrorFieldRequired", "Día de cumpleaños"), null, 'errors');
+                $error++;
+            }
+        }
         $telefono=GETPOST('phone');
         if($telefono!=NULL&& $action =='create'){
             $sql="SELECT count(phone) as com from ".MAIN_DB_PREFIX."societe where phone=".$telefono;

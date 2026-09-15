@@ -74,6 +74,14 @@ $result = restrictedArea($user, 'stock');
 $idproduct = GETPOST('idproduct', 'int');
 $year = GETPOST("year");
 $month = GETPOST("month");
+$search_date_start_day = GETPOST('search_date_startday', 'int');
+$search_date_start_month = GETPOST('search_date_startmonth', 'int');
+$search_date_start_year = GETPOST('search_date_startyear', 'int');
+$search_date_end_day = GETPOST('search_date_endday', 'int');
+$search_date_end_month = GETPOST('search_date_endmonth', 'int');
+$search_date_end_year = GETPOST('search_date_endyear', 'int');
+$search_date_start = dol_mktime(0, 0, 0, $search_date_start_month, $search_date_start_day, $search_date_start_year);
+$search_date_end = dol_mktime(23, 59, 59, $search_date_end_month, $search_date_end_day, $search_date_end_year);
 $search_ref = GETPOST('search_ref', 'alpha');
 $search_movement = GETPOST("search_movement");
 $search_product_barcode = trim(GETPOST("search_product_barcode"));
@@ -167,6 +175,14 @@ if (empty($reshook))
 	{
 	    $year = '';
 	    $month = '';
+	    $search_date_start_day = '';
+	    $search_date_start_month = '';
+	    $search_date_start_year = '';
+	    $search_date_end_day = '';
+	    $search_date_end_month = '';
+	    $search_date_end_year = '';
+	    $search_date_start = '';
+	    $search_date_end = '';
 	    $search_ref = '';
 	    $search_movement = "";
 	    $search_type_mouvement = "";
@@ -604,7 +620,16 @@ $sql .= " AND m.fk_entrepot = e.rowid";
 $sql .= " AND e.entity IN (".getEntity('stock').")";
 if (empty($conf->global->STOCK_SUPPORTS_SERVICES)) $sql .= " AND p.fk_product_type = 0";
 if ($id > 0) $sql .= " AND e.rowid ='".$id."'";
-$sql .= dolSqlDateFilter('m.datem', 0, $month, $year);
+if ($search_date_start_year) {
+	$sql .= " AND m.datem >= '".$db->idate($search_date_start)."'";
+}
+if ($search_date_end_year) {
+	$sql .= " AND m.datem <= '".$db->idate($search_date_end)."'";
+}
+// Compatibilidad con filtro mes/año anterior
+if (!$search_date_start_year && !$search_date_end_year) {
+	$sql .= dolSqlDateFilter('m.datem', 0, $month, $year);
+}
 if ($idproduct > 0) $sql .= " AND p.rowid = '".$idproduct."'";
 if (!empty($search_ref))			$sql .= natural_search('m.rowid', $search_ref, 1);
 if ($contextpage == 'poslist'){
@@ -625,28 +650,31 @@ include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_sql.tpl.php';
 $parameters = array();
 $reshook = $hookmanager->executeHooks('printFieldListWhere', $parameters); // Note that $action and $object may have been modified by hook
 $sql .= $hookmanager->resPrint;
+
+// Contar solo con los mismos filtros (antes se contaba toda llx_stock_mouvement)
+$nbtotalofrecords = '';
+if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
+{
+	$sqlforcount = preg_replace('/^SELECT[\s\S]+?\sFROM\s/i', 'SELECT COUNT(DISTINCT m.rowid) as nbtotalofrecords FROM ', $sql, 1);
+	$rescount = $db->query($sqlforcount);
+	if ($rescount)
+	{
+		$objcount = $db->fetch_object($rescount);
+		$nbtotalofrecords = (int) $objcount->nbtotalofrecords;
+		$db->free($rescount);
+	}
+	if ($limit > 0 && ($page * $limit) > $nbtotalofrecords)	// if total resultset is smaller then paging size (filtering), goto and load page 0
+	{
+		$page = 0;
+		$offset = 0;
+	}
+}
+
 $sql .= $db->order($sortfield, $sortorder);
 
-$nbtotalofrecords = '';
-$sqlCount = "SELECT COUNT(*) AS total FROM llx_stock_mouvement";
-$r = $db->query($sqlCount);
-$objTotal = $db->fetch_object($r);
-$nbtotalofrecords = $objTotal->total;
-if (($page * $limit) > $nbtotalofrecords)	// if total resultset is smaller then paging size (filtering), goto and load page 0
-{
-    $page = 0;
-    $offset = 0;
-}
-// if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
-// {
-//     $result = $db->query($sql);
-//     $nbtotalofrecords = $db->num_rows($result);
-//     if (($page * $limit) > $nbtotalofrecords)	// if total resultset is smaller then paging size (filtering), goto and load page 0
-//     {
-//     	$page = 0;
-//     	$offset = 0;
-//     }
-// }
+// SQL completa (sin paginación) para exportar todo el resultado filtrado
+$sql_export = $sql;
+
 if (empty($search_inventorycode))
 {
 	$sql .= $db->plimit($limit + 1, $offset);
@@ -910,6 +938,14 @@ if ($resql)
     if ($search_warehouse > 0)   $param .= '&search_warehouse='.urlencode($search_warehouse);
     if ($search_user)            $param .= '&search_user='.urlencode($search_user);
     if ($idproduct > 0)          $param .= '&idproduct='.urlencode($idproduct);
+    if ($search_date_start_day)   $param .= '&search_date_startday='.urlencode($search_date_start_day);
+    if ($search_date_start_month) $param .= '&search_date_startmonth='.urlencode($search_date_start_month);
+    if ($search_date_start_year)  $param .= '&search_date_startyear='.urlencode($search_date_start_year);
+    if ($search_date_end_day)     $param .= '&search_date_endday='.urlencode($search_date_end_day);
+    if ($search_date_end_month)   $param .= '&search_date_endmonth='.urlencode($search_date_end_month);
+    if ($search_date_end_year)    $param .= '&search_date_endyear='.urlencode($search_date_end_year);
+    if ($month)                  $param .= '&month='.urlencode($month);
+    if ($year)                   $param .= '&year='.urlencode($year);
     if ($sql)                    $param .= '&sql='.urlencode($sql);
     // Add $param from extra fields
     include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_param.tpl.php';
@@ -924,10 +960,10 @@ if ($resql)
 	if (GETPOST('nomassaction', 'int') || in_array($massaction, array('presend', 'predelete'))) $arrayofmassactions = array();
 	$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
 
-    // Mandar la sql en caso de que se quiera exportar el listado
+    // Mandar la sql en caso de que se quiera exportar el listado (sin LIMIT de paginación)
     print '<form method="POST" id="FormularioExportacion" action="export_csv.php">';
-    print '<input type="hidden" id="limit" name="limit" value="'.$limit.'"/>';
-    print '<input type="hidden" id="sql" name="sql" value="'.$sql.'"/>';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
+    print '<input type="hidden" id="sql" name="sql" value="'.dol_escape_htmltag(base64_encode($sql_export)).'"/>';
     print '</form>';
 
     print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
@@ -1001,14 +1037,16 @@ if ($resql)
     }
     if (!empty($arrayfields['m.datem']['checked']))
     {
-    	// Date
+    	// Date range
     	print '<td class="liste_titre nowraponall">';
-	    print '<input class="flat" type="text" size="2" maxlength="2" placeholder="'.dol_escape_htmltag($langs->trans("Month")).'" name="month" value="'.$month.'">';
-    	if (empty($conf->productbatch->enabled)) print '&nbsp;';
-	    //else print '<br>';
-	    $syear = $year ? $year : -1;
-	    print '<input class="flat maxwidth50" type="text" maxlength="4" placeholder="'.dol_escape_htmltag($langs->trans("Year")).'" name="year" value="'.($syear > 0 ? $syear : '').'">';
-	    //print $formother->selectyear($syear,'year',1, 20, 5);
+	    print '<div class="nowrap">';
+	    print '<span class="opacitymedium">'.$langs->trans("From").'</span><br>';
+	    print $form->selectDate($search_date_start_year ? $search_date_start : '', 'search_date_start', 0, 0, 1, '', 1, 0);
+	    print '</div>';
+	    print '<div class="nowrap">';
+	    print '<span class="opacitymedium">'.$langs->trans("to").'</span><br>';
+	    print $form->selectDate($search_date_end_year ? $search_date_end : '', 'search_date_end', 0, 0, 1, '', 1, 0);
+	    print '</div>';
 	    print '</td>';
     }
     if (!empty($arrayfields['p.barcode']['checked']))
@@ -1593,7 +1631,7 @@ if ($resql)
 
 
     // Add number of product when there is a filter on period
-    if (count($arrayofuniqueproduct) == 1 && is_numeric($year))
+    if (count($arrayofuniqueproduct) == 1 && ($search_date_start_year || $search_date_end_year || is_numeric($year)))
     {
         print "<br>";
 
@@ -1603,8 +1641,16 @@ if ($resql)
     		$productidselected = $key;
     		$productlabelselected = $val;
     	}
-		$datebefore = dol_get_first_day($year ? $year : strftime("%Y", time()), $month ? $month : 1, true);
-		$dateafter = dol_get_last_day($year ? $year : strftime("%Y", time()), $month ? $month : 12, true);
+		if ($search_date_start_year) {
+			$datebefore = $search_date_start;
+		} else {
+			$datebefore = dol_get_first_day($year ? $year : strftime("%Y", time()), $month ? $month : 1, true);
+		}
+		if ($search_date_end_year) {
+			$dateafter = $search_date_end;
+		} else {
+			$dateafter = dol_get_last_day($year ? $year : strftime("%Y", time()), $month ? $month : 12, true);
+		}
     	$balancebefore = $movement->calculateBalanceForProductBefore($productidselected, $datebefore);
     	$balanceafter = $movement->calculateBalanceForProductBefore($productidselected, $dateafter);
 

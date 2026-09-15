@@ -418,6 +418,9 @@ if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST))
 	}
 }
 
+// SQL sin paginación para exportar todas las filas filtradas
+$sql_export = $sql;
+
 $sql .= $db->plimit($limit + 1, $offset);
 //print $sql;
 
@@ -540,7 +543,8 @@ if ($resql)
 	// Lines of title fields
 	print '<form method="POST" id="FormularioExportacion" action="orders_shipments_report.php">';
     print '<input type="hidden" name="action" value="generate_report">';
-	print '<input type="hidden" name="sqlexport" value="'.base64_encode($sql).'">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="sqlexport" value="'.base64_encode($sql_export).'">';
     print '</form>';
 
 	print '<form method="POST" id="searchFormList" action="'.$_SERVER["PHP_SELF"].'">';

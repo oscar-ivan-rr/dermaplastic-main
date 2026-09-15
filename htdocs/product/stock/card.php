@@ -35,8 +35,10 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/class/productbatch.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/stock/class/productlot.class.php';
 // Load translation files required by the page
-$langs->loadLangs(array('products', 'stocks', 'companies', 'categories'));
+$langs->loadLangs(array('products', 'stocks', 'companies', 'categories', 'productbatch'));
 
 $action = GETPOST('action', 'aZ09');
 $cancel = GETPOST('cancel', 'alpha');
@@ -44,6 +46,8 @@ $confirm = GETPOST('confirm');
 
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
+
+$contextpage = GETPOST('contextpage', 'aZ') ? GETPOST('contextpage', 'aZ') : 'warehousecardproducts_v2';
 
 $sortfield = GETPOST("sortfield", 'alpha');
 $sortorder = GETPOST("sortorder", 'alpha');
@@ -62,6 +66,27 @@ $searchCategoryProductList = GETPOST('search_category_product_list', 'array');
 $search_empty_stock = GETPOST('search_empty_stock');
 
 $backtopage = GETPOST('backtopage', 'alpha');
+
+// Definition of fields for list / selectedfields
+$arrayfields = array(
+	'p.ref' => array('label' => 'Product', 'checked' => 1, 'position' => 10),
+	'p.barcode' => array('label' => 'Código de barras', 'checked' => 1, 'position' => 15),
+	'p.ubication' => array('label' => 'Ubicación', 'checked' => 1, 'position' => 20),
+	'categories' => array('label' => 'Categorias', 'checked' => 1, 'position' => 30),
+	'p.batch' => array('label' => 'Lote', 'checked' => 1, 'position' => 40),
+	'p.eatby' => array('label' => 'Caducidad', 'checked' => 1, 'position' => 50),
+	'e.ref' => array('label' => 'Almacén', 'checked' => 1, 'position' => 60),
+	'p.last_entry' => array('label' => 'Última fecha de entrada', 'checked' => 1, 'position' => 70),
+	'p.value' => array('label' => 'Units', 'checked' => 1, 'position' => 80),
+	'p.stock_min' => array('label' => 'Minimo', 'checked' => 1, 'position' => 90),
+	'p.stock_max' => array('label' => 'Maximo', 'checked' => 1, 'position' => 100),
+	'p.reorden' => array('label' => 'Reorden', 'checked' => 1, 'position' => 110),
+	'p.cost_price' => array('label' => 'PUUEPS', 'checked' => 1, 'position' => 120),
+	'p.import_ueps' => array('label' => 'ImportUEPS', 'checked' => 1, 'position' => 130),
+	'p.price' => array('label' => 'SellPriceMin', 'checked' => 1, 'position' => 140, 'enabled' => (empty($conf->global->PRODUIT_MULTIPRICES) ? 1 : 0)),
+	'p.sell_value' => array('label' => 'EstimatedStockValueSellShort', 'checked' => 1, 'position' => 150, 'enabled' => (empty($conf->global->PRODUIT_MULTIPRICES) ? 1 : 0)),
+);
+$arrayfields = dol_sort_array($arrayfields, 'position');
 
 // Security check
 //$result=restrictedArea($user,'stock', $id, 'entrepot&stock');
@@ -103,6 +128,8 @@ $reshook = $hookmanager->executeHooks('doActions', $parameters, $object, $action
 if ($reshook < 0) setEventMessages($hookmanager->error, $hookmanager->errors, 'errors');
 if (empty($reshook))
 {
+	include DOL_DOCUMENT_ROOT.'/core/actions_changeselectedfields.inc.php';
+
 	// Ajout entrepot
 	if ($action == 'add' && $user->rights->stock->creer)
 	{
@@ -179,42 +206,70 @@ if (empty($reshook))
 		setlocale(LC_ALL, 'es-MX.utf-8');
 		header("Content-disposition: attachment; filename=\"Almacen de Sucursal.csv\"");
 		$outputBuffer = fopen("php://output", 'w');
-		
-		$sql = "SELECT DISTINCT p.rowid as rowid, p.ubication, p.stock_min, p.reorden, p.stock_max, p.barcode, p.ref, p.produit, p.tobatch, p.type, p.ppmp, p.price, p.price_ttc, p.entity, p.value, p.weight, p.length, p.width, p.height, p.volume, p.identificacion FROM (";
-		$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
-		$sql .= " ps.reel as value, p.weight, p.length, p.width, p.height, p.volume, pe.noidenticfdi as identificacion";
-		$sql .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
-		$sql .= " LEFT JOIN llx_product_warehouse_properties as pw ON pw.fk_product = p.rowid AND ps.fk_entrepot=pw.fk_entrepot";
-		$sql .= " LEFT JOIN llx_product_extrafields as pe ON  pe.fk_object = p.rowid ";
-		$sql .= " WHERE ps.fk_entrepot = " . $object->id;
+
+		$cost_price_field = ($object->id != $conf->global->CEDIS_WAREHOUSE) ? 'p.cost_price_sucursal as cost_price' : 'p.cost_price';
+
+		$sql = "SELECT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
+		$sql .= " p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
+		$sql .= " COALESCE(pb.qty, ps.reel) as value, p.weight, p.length, p.width, p.height, p.volume, pe.noidenticfdi as identificacion,";
+		$sql .= " ".$cost_price_field.", pb.batch as batch, COALESCE(pl.eatby, pb.eatby) as eatby, e.ref as warehouse_ref, last_in.last_entry as last_entry";
+		$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+		$sql .= " INNER JOIN ".MAIN_DB_PREFIX."product_stock as ps ON ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id;
+		$sql .= " LEFT JOIN (";
+		$sql .= " SELECT fk_product_stock, batch, SUM(qty) as qty, MIN(eatby) as eatby";
+		$sql .= " FROM ".MAIN_DB_PREFIX."product_batch";
+		$sql .= " GROUP BY fk_product_stock, batch";
+		$sql .= " ) as pb ON pb.fk_product_stock = ps.rowid";
+		$sql .= " LEFT JOIN (";
+		$sql .= " SELECT fk_product, batch, MIN(eatby) as eatby";
+		$sql .= " FROM ".MAIN_DB_PREFIX."product_lot";
+		$sql .= " GROUP BY fk_product, batch";
+		$sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties as pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ps.fk_entrepot";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_extrafields as pe ON pe.fk_object = p.rowid";
+		$sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
+		$sql .= " WHERE fk_entrepot = ".(int) $object->id." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
+		$sql .= " WHERE ps.fk_entrepot = ".(int) $object->id;
+		$sql .= " AND (pb.batch IS NULL OR pb.qty <> 0 OR ps.reel = 0)";
 
 		if ($search_empty_stock == 1) {
-			$sql .= " UNION ";
-			$sql .= "SELECT DISTINCT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, ";
-			$sql .= "p.pmp as ppmp, p.price, p.price_ttc, p.entity, NULL as value, p.weight, p.length, p.width, p.height, p.volume, NULL as identificacion FROM " . MAIN_DB_PREFIX . "product as p ";
-			$sql .= " LEFT JOIN llx_product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot='" . $object->id . "' ";
-			$sql .= "WHERE NOT  EXISTS ";
-			$sql .= "(SELECT 1 FROM " . MAIN_DB_PREFIX . "product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = '" . $object->id . "')";
+			$sql .= " UNION ALL ";
+			$sql .= "SELECT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
+			$sql .= " p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
+			$sql .= " NULL as value, p.weight, p.length, p.width, p.height, p.volume, NULL as identificacion,";
+			$sql .= " ".$cost_price_field.", NULL as batch, NULL as eatby, e.ref as warehouse_ref, NULL as last_entry";
+			$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ".(int) $object->id;
+			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ".(int) $object->id;
+			$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id.")";
 		}
-		$sql .= ") as p";
-		if (!empty($searchCategoryProductList)) $sql .= ' JOIN ' . MAIN_DB_PREFIX . "categorie_product as cp ON p.rowid = cp.fk_product"; // We'll need this table joined to the select in order to filter by categ
-		$searchCategoryProductSqlList = array();
-		foreach ($searchCategoryProductList as $searchCategoryProduct) {
-			if (intval($searchCategoryProduct) == -2) {
-				$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
-			} elseif (intval($searchCategoryProduct) > 0) {
-				$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
+
+		if (!empty($searchCategoryProductList)) {
+			$sql = "SELECT * FROM (".$sql.") as p";
+			$sql .= ' JOIN '.MAIN_DB_PREFIX."categorie_product as cp ON p.rowid = cp.fk_product";
+			$searchCategoryProductSqlList = array();
+			foreach ($searchCategoryProductList as $searchCategoryProduct) {
+				if (intval($searchCategoryProduct) == -2) {
+					$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
+				} elseif (intval($searchCategoryProduct) > 0) {
+					$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
+				}
 			}
-		}
-		if (!empty($searchCategoryProductSqlList)) {
-			$sql .= " AND (".implode(' OR ', $searchCategoryProductSqlList).")";
+			if (!empty($searchCategoryProductSqlList)) {
+				$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
+			}
 		}
 		$sql .= $db->order($sortfield, $sortorder);
 
 		$result = $db->query($sql);
-		if($db->num_rows($result)>0){
+		if ($db->num_rows($result) > 0) {
 			$data = array();
-			fputcsv($outputBuffer,array("Codigo de barras", "Producto","Categorias","Unidades", "Minimo", "Maximo", "Reorden", "P.U. UEPS","Importe UEPS","Precio de venta unitario","Valor de venta", utf8_decode("Ubicación"), "Peso", "Medidas (longitud, largo y alto)", "Volumen"),",");
+			fputcsv($outputBuffer, array(
+				"Codigo de barras", "Producto", "Categorias", "Lote", "Caducidad", utf8_decode("Almacén"), utf8_decode("Última fecha de entrada"),
+				"Unidades", "Minimo", "Maximo", "Reorden", "P.U. UEPS", "Importe UEPS", "Precio de venta unitario", "Valor de venta",
+				utf8_decode("Ubicación"), "Peso", "Medidas (longitud, largo y alto)", "Volumen"
+			), ",");
 
 			// Initialize total variables
 			$total_units = 0;
@@ -226,66 +281,57 @@ if (empty($reshook))
 			$langs->load("bills");
 			$langs->load("dict");
 			$form = new Form($db);
-			while ($row= $db->fetch_object($result)){
+			while ($row = $db->fetch_object($result)) {
+				$x = array($row->barcode ? $row->barcode : '');
+				array_push($x, $row->ref ? utf8_decode($row->ref) : 'nada');
+				array_push($x, $form->showCategories($row->rowid, 'product', 1) ? utf8_decode(str_replace("  ", ", ", str_replace("&gt;", ">", strip_tags($form->showCategories($row->rowid, 'product', 1))))) : '');
+				array_push($x, $row->batch ? utf8_decode($row->batch) : '');
+				array_push($x, !empty($row->eatby) ? dol_print_date($db->jdate($row->eatby), 'day') : '');
+				array_push($x, $row->warehouse_ref ? utf8_decode($row->warehouse_ref) : utf8_decode($object->ref));
+				array_push($x, !empty($row->last_entry) ? dol_print_date($db->jdate($row->last_entry), 'dayhour') : '');
 
-				$x = array($row->barcode?$row->barcode:'');
-				array_push($x, $row->ref?utf8_decode($row->ref):'nada');
-				array_push($x,$form->showCategories($row->rowid, 'product', 1)?utf8_decode(str_replace("  ", ", ", str_replace("&gt;", ">", strip_tags($form->showCategories($row->rowid, 'product', 1))))):'');
-				
-				array_push($x,$row->value?$row->value:'');
-				array_push($x,$row->stock_min?$row->stock_min:'0');
-				array_push($x,$row->stock_max?$row->stock_max:'0');
-				array_push($x,$row->reorden?$row->reorden:'0');
+				array_push($x, $row->value ? $row->value : '');
+				array_push($x, $row->stock_min ? $row->stock_min : '0');
+				array_push($x, $row->stock_max ? $row->stock_max : '0');
+				array_push($x, $row->reorden ? $row->reorden : '0');
 
 				$total_units += $row->value;
 
-				// P.U UEPS
-				if ($object->id != $conf->global->CEDIS_WAREHOUSE){
-					$sql = 'SELECT cost_price_sucursal as cost_price';
-				} else {
-					$sql = 'SELECT cost_price';
-				}
-				$sql .= ' FROM '.MAIN_DB_PREFIX.'product';
-				$sql .= " WHERE rowid = {$row->rowid};";
-				$resqlueps_import = $db->query($sql);
-				if($resqlueps_import){
-					$objres = $db->fetch_object($resqlueps_import);
-				}
-				$pu_ueps = price($objres->cost_price)?price($objres->cost_price):'';
+				$pu_ueps = price($row->cost_price) ? price($row->cost_price) : '';
 				array_push($x, $pu_ueps);
-				$total_pu_ueps += $objres->cost_price;
+				$total_pu_ueps += $row->cost_price;
 
-				//UEPS Imort
-				$ueps_value = price($objres->cost_price*$row->value);
-				array_push($x,$ueps_value?$ueps_value:'');
-				$total_importe_ueps += $objres->cost_price * $row->value;
+				$ueps_value = price($row->cost_price * $row->value);
+				array_push($x, $ueps_value ? $ueps_value : '');
+				$total_importe_ueps += $row->cost_price * $row->value;
 
 				$pricemin = $row->price;
 				$size = price2num($row->length, 'MT')." x ".price2num($row->width, 'MT')." x ".price2num($row->height, 'MT')." cm";
-				$precio_venta_unitario = price(price2num($pricemin, 'MU'), 1)?price(price2num($pricemin, 'MU'), 1):'';
+				$precio_venta_unitario = price(price2num($pricemin, 'MU'), 1) ? price(price2num($pricemin, 'MU'), 1) : '';
 				array_push($x, $precio_venta_unitario);
 				$total_precio_venta_unitario += price2num($pricemin, 'MU');
 
-				$valor_venta = price(price2num($pricemin * $row->value, 'MT'), 1)?price(price2num($pricemin * $row->value, 'MT'), 1):'';
+				$valor_venta = price(price2num($pricemin * $row->value, 'MT'), 1) ? price(price2num($pricemin * $row->value, 'MT'), 1) : '';
 				array_push($x, $valor_venta);
 				$total_valor_venta += price2num($pricemin * $row->value, 'MT');
 
-				array_push($x,$row->ubication);
-				array_push($x,price2num($row->weight, 'MT')." kg");
-				array_push($x,$size);
-				array_push($x,price2num($row->volume, 'MT')." cm3");
+				array_push($x, $row->ubication);
+				array_push($x, price2num($row->weight, 'MT')." kg");
+				array_push($x, $size);
+				array_push($x, price2num($row->volume, 'MT')." cm3");
 
-				fputcsv($outputBuffer,$x,",");
+				fputcsv($outputBuffer, $x, ",");
 			}
 
 			// Write totals row
 			$totals = array(
-				"Totales", "", "", 
-				$total_units, 
-				$total_pu_ueps, 
-				$total_importe_ueps, 
-				$total_precio_venta_unitario, 
-				$total_valor_venta, 
+				"Totales", "", "", "", "", "", "",
+				$total_units,
+				"", "", "",
+				$total_pu_ueps,
+				$total_importe_ueps,
+				$total_precio_venta_unitario,
+				$total_valor_venta,
 				"", "", "", ""
 			);
 			fputcsv($outputBuffer, $totals, ",");
@@ -734,42 +780,56 @@ else
 			$totalueps = 0;
 			$totalunitprice = 0;
 
-			$sql = "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication,  p.stock_min, p.reorden, p.stock_max, p.produit, p.tobatch, p.type, p.pmp, p.price, p.price_ttc, p.entity, p.value, p.exentoiva FROM (";
-			if ($object->id != $conf->global->CEDIS_WAREHOUSE){
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, ";
-			} else {
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, ";
-			}
-			$sql .= " ps.reel as value";
-			$sql .= " FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
-			$sql .= " LEFT JOIN llx_product_warehouse_properties as pw ON pw.fk_product = p.rowid AND ps.fk_entrepot=pw.fk_entrepot";
-			// agregar join para stocks min y max
-			$sql .= " WHERE ps.fk_entrepot = " . $object->id;
+			$cost_price_field = ($object->id != $conf->global->CEDIS_WAREHOUSE) ? 'p.cost_price_sucursal as cost_price' : 'p.cost_price';
+
+			$sql = "SELECT p.rowid as rowid, p.ref, p.barcode, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
+			$sql .= " p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, ".$cost_price_field.", p.exentoiva,";
+			$sql .= " COALESCE(pb.qty, ps.reel) as value, pb.batch as batch, COALESCE(pl.eatby, pb.eatby) as eatby,";
+			$sql .= " e.ref as warehouse_ref, last_in.last_entry as last_entry";
+			$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+			$sql .= " INNER JOIN ".MAIN_DB_PREFIX."product_stock as ps ON ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id;
+			$sql .= " LEFT JOIN (";
+			$sql .= " SELECT fk_product_stock, batch, SUM(qty) as qty, MIN(eatby) as eatby";
+			$sql .= " FROM ".MAIN_DB_PREFIX."product_batch";
+			$sql .= " GROUP BY fk_product_stock, batch";
+			$sql .= " ) as pb ON pb.fk_product_stock = ps.rowid";
+			$sql .= " LEFT JOIN (";
+			$sql .= " SELECT fk_product, batch, MIN(eatby) as eatby";
+			$sql .= " FROM ".MAIN_DB_PREFIX."product_lot";
+			$sql .= " GROUP BY fk_product, batch";
+			$sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
+			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
+			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties as pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ps.fk_entrepot";
+			$sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
+			$sql .= " WHERE fk_entrepot = ".(int) $object->id." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
+			$sql .= " WHERE ps.fk_entrepot = ".(int) $object->id;
+			$sql .= " AND (pb.batch IS NULL OR pb.qty <> 0 OR ps.reel = 0)";
 
 			if ($search_empty_stock == 1) {
-				$sql .= " UNION ";
-				$sql .= "SELECT DISTINCT p.rowid as rowid, p.ref, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max, p.label as produit, p.tobatch, p.fk_product_type as type, ";
-				if ($object->id != $conf->global->CEDIS_WAREHOUSE){
-					$sql .= "p.pmp, p.price, p.price_ttc, p.entity, p.cost_price_sucursal as cost_price, p.exentoiva, NULL as value FROM " . MAIN_DB_PREFIX . "product as p ";
-				} else {
-					$sql .= "p.pmp, p.price, p.price_ttc, p.entity, p.cost_price, p.exentoiva, NULL as value FROM " . MAIN_DB_PREFIX . "product as p ";
-				}
-				$sql .= " LEFT JOIN llx_product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot='" . $object->id . "' ";
-				$sql .= "WHERE NOT  EXISTS ";
-				$sql .= "(SELECT 1 FROM " . MAIN_DB_PREFIX . "product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = '" . $object->id . "')";
+				$sql .= " UNION ALL ";
+				$sql .= "SELECT p.rowid as rowid, p.ref, p.barcode, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
+				$sql .= " p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, ".$cost_price_field.", p.exentoiva,";
+				$sql .= " NULL as value, NULL as batch, NULL as eatby, e.ref as warehouse_ref, NULL as last_entry";
+				$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+				$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ".(int) $object->id;
+				$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ".(int) $object->id;
+				$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id.")";
 			}
-			$sql .= ") as p";
-			if (!empty($searchCategoryProductList)) $sql .= ' JOIN ' . MAIN_DB_PREFIX . "categorie_product as cp ON p.rowid = cp.fk_product"; // We'll need this table joined to the select in order to filter by categ
-			$searchCategoryProductSqlList = array();
-			foreach ($searchCategoryProductList as $searchCategoryProduct) {
-				if (intval($searchCategoryProduct) == -2) {
-					$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
-				} elseif (intval($searchCategoryProduct) > 0) {
-					$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
+
+			if (!empty($searchCategoryProductList)) {
+				$sql = "SELECT * FROM (".$sql.") as p";
+				$sql .= ' JOIN '.MAIN_DB_PREFIX."categorie_product as cp ON p.rowid = cp.fk_product";
+				$searchCategoryProductSqlList = array();
+				foreach ($searchCategoryProductList as $searchCategoryProduct) {
+					if (intval($searchCategoryProduct) == -2) {
+						$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
+					} elseif (intval($searchCategoryProduct) > 0) {
+						$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
+					}
 				}
-			}
-			if (!empty($searchCategoryProductSqlList)) {
-				$sql .= " AND (".implode(' OR ', $searchCategoryProductSqlList).")";
+				if (!empty($searchCategoryProductSqlList)) {
+					$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
+				}
 			}
 			$sql .= $db->order($sortfield, $sortorder);
 			$nbtotalofrecords = '';
@@ -790,166 +850,167 @@ else
 				$i = 0;
 				print '<form action="' . $_SERVER["PHP_SELF"] . '?id=' . $id . '" method="post" name="formulaire">';
 				print '<input type="hidden" name="token" value="' . newToken() . '">';
+				print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
+				print '<input type="hidden" name="action" value="list">';
 				print '<input type="hidden" name="id" value="'.$id.'">';
+				print '<input type="hidden" name="contextpage" value="'.$contextpage.'">';
 				print '<input type="hidden" name="sortfield" value="'.$sortfield.'">';
 				print '<input type="hidden" name="sortorder" value="'.$sortorder.'">';
 				print '<input type="hidden" name="page" value="' . $page . '">';
 				print '<input type="hidden" name="type" value="'.$type.'">';
-				$param .= '&id='.$id.'';
+				$param .= '&id='.$id;
+				if (!empty($contextpage) && $contextpage != $_SERVER["PHP_SELF"]) $param .= '&contextpage='.urlencode($contextpage);
 				print_barre_liste($texte, $page, $_SERVER["PHP_SELF"], $param, $sortfield, $sortorder, '', $num, $nbtotalofrecords, 'products', 0, '', '', $limit);
 
-				print '<table class="noborder centpercent">';
-				print "<tr class=\"liste_titre\">";
-				print_liste_field_titre("Product", "", "p.ref", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
-				print_liste_field_titre("Ubicación", "", "p.ubication", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
-				// Categories Filter
-				print '<td>';
-				print '<div class="divsearchfield">';
-				print $langs->trans('Categorias') . ': ';
-				$categoriesProductArr = $form->select_all_categories(Categorie::TYPE_PRODUCT, '', '', 64, 0, 1);
-				$categoriesProductArr[-2] = '- ' . $langs->trans('NotCategorized') . ' -';
-				print Form::multiselectarray('search_category_product_list', $categoriesProductArr, $searchCategoryProductList, 0, 0, 'minwidth300');
-				print '</div>';
-				print '</td>';
+				$varpage = empty($contextpage) ? $_SERVER["PHP_SELF"] : $contextpage;
+				$selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, $varpage);
 
-				// Label
-				// print_liste_field_titre("Label", "", "p.label", "&amp;id=".$id, "", "", $sortfield, $sortorder);
-				print_liste_field_titre("Units", "", "p.value", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
-				print_liste_field_titre("Minimo", "", "p.stock_min", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
-				print_liste_field_titre("Maximo", "", "p.stock_max", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
-				print_liste_field_titre("Reorden", "", "p.reorden", "&amp;id=" . $id, $param, "", $sortfield, $sortorder);
-				print_liste_field_titre("PUUEPS", "", "p.cost_price", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
-
-				//            print_liste_field_titre("AverageUnitPricePMPShort", "", "p.pmp", "&amp;id=".$id, "", '', $sortfield, $sortorder, 'right ');
-				print_liste_field_titre("ImportUEPS", "", "p.pmp", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
-				if ($user->rights->stock->show_pmp)
-					//print_liste_field_titre("EstimatedStockValueShort", "", "", "&amp;id=".$id, "", '', $sortfield, $sortorder, 'right ');
-					if (empty($conf->global->PRODUIT_MULTIPRICES)) {
-						print_liste_field_titre("SellPriceMin", "", "p.price", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
-					}
-				if (empty($conf->global->PRODUIT_MULTIPRICES)) {
-					print_liste_field_titre("EstimatedStockValueSellShort", "", "", "&amp;id=" . $id, "", '', $sortfield, $sortorder, 'right ');
+				print '<div class="div-table-responsive">';
+				print '<table class="tagtable noborder liste centpercent">';
+				print '<tr class="liste_titre">';
+				if (!empty($arrayfields['p.ref']['checked'])) print_liste_field_titre($arrayfields['p.ref']['label'], $_SERVER["PHP_SELF"], "p.ref", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['p.barcode']['checked'])) print_liste_field_titre($arrayfields['p.barcode']['label'], $_SERVER["PHP_SELF"], "p.barcode", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['p.ubication']['checked'])) print_liste_field_titre($arrayfields['p.ubication']['label'], $_SERVER["PHP_SELF"], "p.ubication", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['categories']['checked'])) {
+					print '<td>';
+					print '<div class="divsearchfield">';
+					print $langs->trans('Categorias') . ': ';
+					$categoriesProductArr = $form->select_all_categories(Categorie::TYPE_PRODUCT, '', '', 64, 0, 1);
+					$categoriesProductArr[-2] = '- ' . $langs->trans('NotCategorized') . ' -';
+					print Form::multiselectarray('search_category_product_list', $categoriesProductArr, $searchCategoryProductList, 0, 0, 'minwidth300');
+					print '</div>';
+					print '</td>';
 				}
-				print '<td class="center" colspan="2">Existencias 0 ';
+				if (!empty($arrayfields['p.batch']['checked'])) print_liste_field_titre($arrayfields['p.batch']['label'], $_SERVER["PHP_SELF"], "batch", "", $param, "", $sortfield, $sortorder, 'center ');
+				if (!empty($arrayfields['p.eatby']['checked'])) print_liste_field_titre($arrayfields['p.eatby']['label'], $_SERVER["PHP_SELF"], "eatby", "", $param, "", $sortfield, $sortorder, 'center ');
+				if (!empty($arrayfields['e.ref']['checked'])) print_liste_field_titre($arrayfields['e.ref']['label'], $_SERVER["PHP_SELF"], "warehouse_ref", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['p.last_entry']['checked'])) print_liste_field_titre($arrayfields['p.last_entry']['label'], $_SERVER["PHP_SELF"], "last_entry", "", $param, "", $sortfield, $sortorder, 'center ');
+				if (!empty($arrayfields['p.value']['checked'])) print_liste_field_titre($arrayfields['p.value']['label'], $_SERVER["PHP_SELF"], "value", "", $param, "", $sortfield, $sortorder, 'right ');
+				if (!empty($arrayfields['p.stock_min']['checked'])) print_liste_field_titre($arrayfields['p.stock_min']['label'], $_SERVER["PHP_SELF"], "stock_min", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['p.stock_max']['checked'])) print_liste_field_titre($arrayfields['p.stock_max']['label'], $_SERVER["PHP_SELF"], "stock_max", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['p.reorden']['checked'])) print_liste_field_titre($arrayfields['p.reorden']['label'], $_SERVER["PHP_SELF"], "reorden", "", $param, "", $sortfield, $sortorder);
+				if (!empty($arrayfields['p.cost_price']['checked'])) print_liste_field_titre($arrayfields['p.cost_price']['label'], $_SERVER["PHP_SELF"], "cost_price", "", $param, "", $sortfield, $sortorder, 'right ');
+				if (!empty($arrayfields['p.import_ueps']['checked'])) print_liste_field_titre($arrayfields['p.import_ueps']['label'], $_SERVER["PHP_SELF"], "", "", $param, "", $sortfield, $sortorder, 'right ');
+				if (!empty($arrayfields['p.price']['checked'])) print_liste_field_titre($arrayfields['p.price']['label'], $_SERVER["PHP_SELF"], "price", "", $param, "", $sortfield, $sortorder, 'right ');
+				if (!empty($arrayfields['p.sell_value']['checked'])) print_liste_field_titre($arrayfields['p.sell_value']['label'], $_SERVER["PHP_SELF"], "", "", $param, "", $sortfield, $sortorder, 'right ');
+				print '<td class="center">Existencias 0 ';
 				print '<input type="checkbox" class="valignmiddle" name="search_empty_stock" value="1" ' . ($search_empty_stock == 1 ? ' checked="checked"' : '') . '/>';
 				print '</td>';
-				print '<td>' . $form->showFilterButtons() . '</td>';
-				print '</form>';
-				print "</tr>\n";
+				if ($user->rights->stock->mouvement->creer) print '<td></td>';
+				if ($user->rights->stock->creer) print '<td></td>';
+				print '<td class="liste_titre center maxwidthsearch">';
+				print $selectedfields;
+				print $form->showFilterButtons();
+				print '</td>';
+				print '</tr>';
+
 				while ($i < min($num, $limit)) {
 					$objp = $db->fetch_object($resql);
 
 					// Multilangs
 					if (!empty($conf->global->MAIN_MULTILANGS)) // si l'option est active
 					{
-						$sql = "SELECT label";
-						$sql .= " FROM ".MAIN_DB_PREFIX."product_lang";
-						$sql .= " WHERE fk_product=".$objp->rowid;
-						$sql .= " AND lang='".$langs->getDefaultLang()."'";
-						$sql .= " LIMIT 1";
+						$sqlml = "SELECT label";
+						$sqlml .= " FROM ".MAIN_DB_PREFIX."product_lang";
+						$sqlml .= " WHERE fk_product=".$objp->rowid;
+						$sqlml .= " AND lang='".$langs->getDefaultLang()."'";
+						$sqlml .= " LIMIT 1";
 
-						$result = $db->query($sql);
-						if ($result)
+						$resultml = $db->query($sqlml);
+						if ($resultml)
 						{
-							$objtp = $db->fetch_object($result);
+							$objtp = $db->fetch_object($resultml);
 							if ($objtp->label != '') $objp->produit = $objtp->label;
 						}
 					}
 
-
-					//print '<td>'.dol_print_date($objp->datem).'</td>';
 					print '<tr class="oddeven">';
-					print "<td>";
-					$productstatic->id = $objp->rowid;
-					$productstatic->ref = $objp->ref;
-					$productstatic->ubication = $objp->ubication;
-					$productstatic->label = $objp->produit;
-					$productstatic->type = $objp->type;
-					$productstatic->entity = $objp->entity;
-					$productstatic->status_batch = $objp->tobatch;
-					print $productstatic->getNomUrl(1, 'stock', 16);
-					print '</td>';
+					if (!empty($arrayfields['p.ref']['checked'])) {
+						print "<td>";
+						$productstatic->id = $objp->rowid;
+						$productstatic->ref = $objp->ref;
+						$productstatic->ubication = $objp->ubication;
+						$productstatic->label = $objp->produit;
+						$productstatic->type = $objp->type;
+						$productstatic->entity = $objp->entity;
+						$productstatic->status_batch = $objp->tobatch;
+						print $productstatic->getNomUrl(1, 'stock', 16);
+						print '</td>';
+					}
 
-					// Label
-					print '<td>'.$objp->ubication.'</td>';
+					if (!empty($arrayfields['p.barcode']['checked'])) {
+						print '<td>'.dol_escape_htmltag($objp->barcode).'</td>';
+					}
 
-					// Categories
-					print '<td class="tdoverflowmax200">';
-					print $form->showCategories($objp->rowid, 'product', 1);
-					print '</td>';
+					if (!empty($arrayfields['p.ubication']['checked'])) {
+						print '<td>'.$objp->ubication.'</td>';
+					}
 
+					if (!empty($arrayfields['categories']['checked'])) {
+						print '<td class="tdoverflowmax200">';
+						print $form->showCategories($objp->rowid, 'product', 1);
+						print '</td>';
+					}
 
-					print '<td class="right">';
-					$valtoshow = price(price2num($objp->value, 'MS'), 0, '', 0, 0); // TODO replace with a qty() function
-					print empty($valtoshow) ? '0' : $valtoshow;
-					print '</td>';
+					if (!empty($arrayfields['p.batch']['checked'])) {
+						print '<td class="center">'.dol_escape_htmltag($objp->batch).'</td>';
+					}
+					if (!empty($arrayfields['p.eatby']['checked'])) {
+						print '<td class="center">'.(!empty($objp->eatby) ? dol_print_date($db->jdate($objp->eatby), 'day') : '').'</td>';
+					}
+					if (!empty($arrayfields['e.ref']['checked'])) {
+						print '<td>'.dol_escape_htmltag($objp->warehouse_ref ? $objp->warehouse_ref : $object->ref).'</td>';
+					}
+					if (!empty($arrayfields['p.last_entry']['checked'])) {
+						print '<td class="center">'.(!empty($objp->last_entry) ? dol_print_date($db->jdate($objp->last_entry), 'dayhour') : '').'</td>';
+					}
+
+					if (!empty($arrayfields['p.value']['checked'])) {
+						print '<td class="right">';
+						$valtoshow = price(price2num($objp->value, 'MS'), 0, '', 0, 0);
+						print empty($valtoshow) ? '0' : $valtoshow;
+						print '</td>';
+					}
 
 					$min = $objp->stock_min ? $objp->stock_min : 0;
 					$max = $objp->stock_max ? $objp->stock_max : 0;
 					$reorden = $objp->reorden ? $objp->reorden : 0;
 
-					print '<td class="center">'.$min.'</td>';
-					print '<td class="center">'.$max.'</td>';
-					print '<td class="center">'.$reorden.'</td>';
+					if (!empty($arrayfields['p.stock_min']['checked'])) print '<td class="center">'.$min.'</td>';
+					if (!empty($arrayfields['p.stock_max']['checked'])) print '<td class="center">'.$max.'</td>';
+					if (!empty($arrayfields['p.reorden']['checked'])) print '<td class="center">'.$reorden.'</td>';
 
 					$totalunit += $objp->value;
 
-					// P.U UEPS
-					if ($object->id != $conf->global->CEDIS_WAREHOUSE){
-						$sql = 'SELECT cost_price_sucursal as cost_price';
-					} else {
-						$sql = 'SELECT cost_price ';
+					$cost_price = $objp->cost_price;
+					if (!empty($arrayfields['p.cost_price']['checked'])) {
+						print '<td class="right">'.price($cost_price).'</td>';
 					}
-                    $sql .= ' FROM '.MAIN_DB_PREFIX.'product ';
-                    $sql .= ' WHERE rowid = '.$productstatic->id.' ;';
-                    $resqlueps_import = $db->query($sql);
-                    if($resqlueps_import){
-                        $objres = $db->fetch_object($resqlueps_import);
-                    }
-					print '<td class="right">'.price($objres->cost_price).'</td>';
-					$totalunitprice += price2num($objres->cost_price, 'MT');
+					$totalunitprice += price2num($cost_price, 'MT');
 
-                    // Price buy PMP
-//					print '<td class="right">'.price(price2num($objp->ppmp, 'MU')).'</td>';
-                    // Implementation of UEPS
-                    // $sqlueps = 'SELECT price ';
-                    // $sqlueps .= 'FROM '.MAIN_DB_PREFIX.'stock_mouvement ';
-                    // $sqlueps .= 'WHERE fk_product = '.$productstatic->id.' ';
-                    // $sqlueps .= 'AND value > 0 ORDER BY datem DESC LIMIT 1';
-                    // $resqlueps = $db->query($sqlueps);
-                    // if($resqlueps){
-                    //     $objres = $db->fetch_object($resqlueps);
-                    // }
-					
-					//UEPS Imort
-                    $ueps_value = price($objres->cost_price*$objp->value);
-                    print '<td class="right">'.$ueps_value.'</td>';
-					$totalueps += price2num($ueps_value, 'MT');
-                    // END UEPS
+					$ueps_value_num = $cost_price * $objp->value;
+					if (!empty($arrayfields['p.import_ueps']['checked'])) {
+						print '<td class="right">'.price($ueps_value_num).'</td>';
+					}
+					$totalueps += price2num($ueps_value_num, 'MT');
 
-					// Total PMP
-					// if ($user->rights->stock->show_pmp) {
-					// 	print '<td class="right">'.price(price2num($objp->ppmp * $objp->value, 'MT')).'</td>';
-					// 	$totalvalue += price2num($objp->ppmp * $objp->value, 'MT');
-					// }
-
-                    // Price sell min
-                    if (empty($conf->global->PRODUIT_MULTIPRICES))
-                    {
-                        $pricemin = $objp->price;
-                        print '<td class="right">';
-                        print price(price2num($pricemin, 'MU'), 1);
-                        print '</td>';
-                        // Total sell min
-                        print '<td class="right">';
-                        print price(price2num($pricemin * $objp->value, 'MT'), 1);
-                        print '</td>';
-                    }
+					$pricemin = $objp->price;
+					if (!empty($arrayfields['p.price']['checked'])) {
+						print '<td class="right">';
+						print price(price2num($pricemin, 'MU'), 1);
+						print '</td>';
+					}
+					if (!empty($arrayfields['p.sell_value']['checked'])) {
+						print '<td class="right">';
+						print price(price2num($pricemin * $objp->value, 'MT'), 1);
+						print '</td>';
+					}
 					$totalunitsell += price2num($pricemin, 'MT');
-                    $totalvaluesell += price2num($pricemin * $objp->value, 'MT');
+					$totalvaluesell += price2num($pricemin * $objp->value, 'MT');
 
+					print '<td></td>'; // empty stock checkbox column
 
-                    if ($user->rights->stock->mouvement->creer)
+					if ($user->rights->stock->mouvement->creer)
 					{
 						print '<td class="center"><a href="'.DOL_URL_ROOT.'/product/stock/product.php?dwid='.$object->id.'&id='.$objp->rowid.'&action=transfert&backtopage='.urlencode($_SERVER["PHP_SELF"].'?id='.$id).'">';
 						print img_picto($langs->trans("StockMovement"), 'uparrow.png', 'class="hideonsmartphone"').' '.$langs->trans("StockMovement");
@@ -962,29 +1023,41 @@ else
 						print $langs->trans("StockCorrection");
 						print "</a></td>";
 					}
-					print '<td class="liste_total">&nbsp;</td>';
+					print '<td></td>'; // selectedfields column
 					print "</tr>";
 					$i++;
 				}
 				$db->free($resql);
 
-				print '<tr class="liste_total"><td class="liste_total" colspan="2">'.$langs->trans("Total").'</td>';
-				print '<td class="liste_total right">';
-				$valtoshow = price(price2num($totalunit, 'MS'));
-				print empty($valtoshow) ? '0' : $valtoshow;
-				print '</td>';
-				print '<td class="liste_total right">'.price($totalunitprice).'</td>';// Total UEPS
-				if ($user->rights->stock->show_pmp)
-                	print '<td class="liste_total right">'.price(price2num($totalueps, 'MT')).'</td>';
-                if (empty($conf->global->PRODUIT_MULTIPRICES))
-                {
-                    print '<td class="liste_total right">'.price($totalunitsell).'</td>';
-                    print '<td class="liste_total right">'.price(price2num($totalvaluesell, 'MT')).'</td>';
-                }
-                print '<td class="liste_total">&nbsp;</td>';
-				print '<td class="liste_total">&nbsp;</td>';
-				print '<td class="liste_total">&nbsp;</td>';
+				// Totals row respecting visible columns
+				print '<tr class="liste_total">';
+				foreach ($arrayfields as $key => $val) {
+					if (empty($val['checked'])) continue;
+					if ($key == 'p.ref') {
+						print '<td class="liste_total">'.$langs->trans("Total").'</td>';
+					} elseif ($key == 'p.value') {
+						$valtoshow = price(price2num($totalunit, 'MS'));
+						print '<td class="liste_total right">'.(empty($valtoshow) ? '0' : $valtoshow).'</td>';
+					} elseif ($key == 'p.cost_price') {
+						print '<td class="liste_total right">'.price($totalunitprice).'</td>';
+					} elseif ($key == 'p.import_ueps') {
+						print '<td class="liste_total right">'.price(price2num($totalueps, 'MT')).'</td>';
+					} elseif ($key == 'p.price') {
+						print '<td class="liste_total right">'.price($totalunitsell).'</td>';
+					} elseif ($key == 'p.sell_value') {
+						print '<td class="liste_total right">'.price(price2num($totalvaluesell, 'MT')).'</td>';
+					} else {
+						print '<td class="liste_total"></td>';
+					}
+				}
+				print '<td class="liste_total"></td>'; // empty stock
+				if ($user->rights->stock->mouvement->creer) print '<td class="liste_total"></td>';
+				if ($user->rights->stock->creer) print '<td class="liste_total"></td>';
+				print '<td class="liste_total"></td>'; // selectedfields
 				print '</tr>';
+				print '</table>';
+				print '</div>';
+				print '</form>';
 
 				print '<table class="right" style="margin-top: 20px; align-items: right;width:75%;border: 0px;border-bottom: none; border-collapse: collapse;border-spacing: 0;border-top: none;">';
 				print '<tr>';
@@ -1059,7 +1132,6 @@ else
 			{
 				dol_print_error($db);
 			}
-			print "</table>\n";
 		}
 
 

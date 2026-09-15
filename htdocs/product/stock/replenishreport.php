@@ -329,6 +329,7 @@ if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST)) {
 	}
 }
 $sql .= $db->plimit($limit + 1, $offset);
+$sql_for_export = $sql; // Keep full list SQL before display loop may overwrite $sql
 $resql = $db->query($sql);
 if (empty($resql)) {
 	dol_print_error($db);
@@ -688,8 +689,7 @@ print '<div class="center"><input class="button" id="exportTable" type="button" 
 print '<form name="formExport" id="formExport" method="POST" action="export_replenishreport.php">';
 print '<input type="hidden" name="action" value="export">';
 // send sql to export_replenishreport.php but encode it to avoid problems with quotes
-print '<input type="hidden" name="sql" value="' . base64_encode($sql) . '">';
-print '<input type="hidden" name="limit" value="' . $limit . '">';
+print '<input type="hidden" name="sql" value="' . base64_encode($sql_for_export) . '">';
 print '<input type="hidden" id="report" name="report"/>';
 print '</form>';
 // TODO Replace this with jquery

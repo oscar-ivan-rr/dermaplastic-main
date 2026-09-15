@@ -33,13 +33,15 @@ $categorie = new Categorie($db);
 $entrepot = new Entrepot($db);
 
 $sql = base64_decode($_POST['sql']);
-$sql = substr($sql, 0, strrpos($sql, 'LIMIT'));
+// Remove pagination LIMIT/OFFSET so export includes all filtered rows
+$sql = preg_replace('/\s+LIMIT\s+\d+(?:\s*,\s*\d+)?\s*$/i', '', $sql);
 
-$limit = $_POST['limit'];
 $file = 'ReplenishReport.xls';
-$sql .= ' LIMIT ' . $limit;
 $resql = $db->query($sql);
-$nbrows = $db->num_rows($resql);
+if (empty($resql)) {
+	dol_print_error($db);
+	exit;
+}
 
 header('Content-Type: application/vnd.ms-excel');
 header('Content-Disposition: attachment;filename="' . $file . '"');
@@ -65,12 +67,7 @@ $table .= '<th>Diferencia</th>';
 $table .= '</tr>';
 $table .= '<tbody>';
 
-$i = 0;
-
-while ($i < ($limit ? min($nbrows, $limit) : $nbrows)) {
-    $obj = $db->fetch_object($resql);
-    $required_stock = $obj->required_stock;
-
+while ($obj = $db->fetch_object($resql)) {
     $prod->fetch($obj->rowid);
     $entrepot->fetch($obj->fk_entrepot);
 
@@ -92,8 +89,6 @@ while ($i < ($limit ? min($nbrows, $limit) : $nbrows)) {
     $table .= '<td>' . $obj->stock_cedis . '</td>';
     $table .= '<td>' . $obj->diff_stock . '</td>';
     $table .= '</tr>';
-
-    $i++;
 }
 $table .= '</tbody>';
 $table .= '</table>';

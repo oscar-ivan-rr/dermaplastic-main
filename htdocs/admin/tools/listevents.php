@@ -167,6 +167,85 @@ $form=new Form($db);
 $userstatic=new User($db);
 $usefilter=0;
 
+/**
+ * Formatea dateevent a zona America/Mexico_City.
+ * Los eventos se guardan con reloj UTC del PHP; sin conversión aparecen ~6h adelantados (ej. 4am).
+ *
+ * @param DoliDB $db
+ * @param string $dateevent
+ * @return string
+ */
+function listevents_format_date_cdmx($db, $dateevent)
+{
+	$ts = $db->jdate($dateevent);
+	if (empty($ts)) {
+		return '';
+	}
+	try {
+		$dt = new DateTime('@'.((int) $ts));
+		$dt->setTimezone(new DateTimeZone('America/Mexico_City'));
+		return $dt->format('Y-m-d H:i:s');
+	} catch (Exception $e) {
+		return dol_print_date($ts, '%Y-%m-%d %H:%M:%S');
+	}
+}
+
+/**
+ * Decodifica descripción del evento y separa el detalle de lo modificado.
+ *
+ * @param Translate $langs
+ * @param string    $description
+ * @return array{0:string,1:string} [texto evento, detalle modificación]
+ */
+function listevents_parse_description($langs, $description)
+{
+	$description = html_entity_decode((string) $description, ENT_QUOTES, 'UTF-8');
+	$text = $langs->trans($description);
+	$reg = array();
+	if (preg_match('/\((.*)\)(.*)/i', $description, $reg)) {
+		$val = explode(',', $reg[1]);
+		$text = $langs->trans($val[0], isset($val[1]) ? $val[1] : '', isset($val[2]) ? $val[2] : '', isset($val[3]) ? $val[3] : '', isset($val[4]) ? $val[4] : '');
+		if (!empty($reg[2])) {
+			$text .= $reg[2];
+		}
+	}
+	$detalle = '';
+	if (preg_match('/^(.*?)\s+-\s+(.+)$/s', $text, $m)) {
+		$text = trim($m[1]);
+		$detalle = trim($m[2]);
+		// No tratar datos de pantalla/TZ de login como "modificación"
+		if (preg_match('/^TZ=/i', $detalle) || stripos($detalle, 'Screen=') !== false) {
+			$text .= ' - '.$detalle;
+			$detalle = '';
+		}
+	}
+	return array($text, $detalle);
+}
+
+/**
+ * Etiqueta legible del tipo de evento.
+ *
+ * @param string $type
+ * @return string
+ */
+function listevents_type_label($type)
+{
+	$map = array(
+		'USER_LOGIN' => 'Inicio de sesión',
+		'USER_LOGOUT' => 'Cierre de sesión',
+		'USER_LOGIN_FAILED' => 'Login fallido',
+		'USER_CREATE' => 'Alta de usuario',
+		'USER_MODIFY' => 'Modificación de usuario',
+		'USER_DELETE' => 'Baja de usuario',
+		'USER_NEW_PASSWORD' => 'Cambio de contraseña',
+		'USER_ENABLEDISABLE' => 'Activación/desactivación de usuario',
+		'GROUP_CREATE' => 'Alta de grupo',
+		'GROUP_MODIFY' => 'Modificación de grupo',
+		'GROUP_DELETE' => 'Baja de grupo',
+	);
+	return isset($map[$type]) ? $map[$type] : $type;
+}
+
 $sql = "SELECT e.rowid, e.type, e.ip, e.user_agent, e.dateevent,";
 $sql.= " e.fk_user, e.description, e.prefix_session,";
 $sql.= " u.login";
@@ -259,8 +338,9 @@ if ($result)
 	print '</td>';
 
 	print '<td class="liste_titre left">';
-	//print '<input class="flat maxwidth100" type="text" size="10" name="search_desc" value="'.$search_desc.'">';
+	print '<input class="flat maxwidth100" type="text" name="search_desc" value="'.$search_desc.'">';
 	print '</td>';
+	print '<td class="liste_titre left"></td>';
 
 	if (! empty($arrayfields['e.user_agent']['checked']))
 	{
@@ -285,11 +365,12 @@ if ($result)
 
 
 	print '<tr class="liste_titre">';
-	print_liste_field_titre("Date", $_SERVER["PHP_SELF"], "e.dateevent", "", $param, '', $sortfield, $sortorder);
+	print_liste_field_titre("Fecha (CDMX)", $_SERVER["PHP_SELF"], "e.dateevent", "", $param, '', $sortfield, $sortorder);
 	print_liste_field_titre("Code", $_SERVER["PHP_SELF"], "e.type", "", $param, '', $sortfield, $sortorder);
 	print_liste_field_titre("IP", $_SERVER["PHP_SELF"], "e.ip", "", $param, '', $sortfield, $sortorder);
 	print_liste_field_titre("User", $_SERVER["PHP_SELF"], "u.login", "", $param, '', $sortfield, $sortorder);
-	print_liste_field_titre("Description", $_SERVER["PHP_SELF"], "e.description", "", $param, '', $sortfield, $sortorder);
+	print_liste_field_titre("Evento", $_SERVER["PHP_SELF"], "e.description", "", $param, '', $sortfield, $sortorder);
+	print_liste_field_titre("Qué se modificó", $_SERVER["PHP_SELF"], "", "", $param, '', $sortfield, $sortorder);
 	if (! empty($arrayfields['e.user_agent']['checked']))
 	{
 		print_liste_field_titre("UserAgent", $_SERVER["PHP_SELF"], "e.user_agent", "", $param, '', $sortfield, $sortorder);
@@ -307,11 +388,14 @@ if ($result)
 
 		print '<tr class="oddeven">';
 
-		// Date
-		print '<td class="nowrap left">'.dol_print_date($db->jdate($obj->dateevent), '%Y-%m-%d %H:%M:%S').'</td>';
+		// Date (America/Mexico_City)
+		print '<td class="nowrap left">'.dol_escape_htmltag(listevents_format_date_cdmx($db, $obj->dateevent)).'</td>';
 
 		// Code
-		print '<td>'.$obj->type.'</td>';
+		print '<td class="nowrap">';
+		print dol_escape_htmltag($obj->type);
+		print '<br><span class="opacitymedium">'.dol_escape_htmltag(listevents_type_label($obj->type)).'</span>';
+		print '</td>';
 
 		// IP
 		print '<td class="nowrap">';
@@ -329,18 +413,10 @@ if ($result)
 		else print '&nbsp;';
 		print '</td>';
 
-		// Description
-		print '<td>';
-		$text=$langs->trans($obj->description);
-		$reg = array();
-		if (preg_match('/\((.*)\)(.*)/i', $obj->description, $reg))
-		{
-			$val=explode(',', $reg[1]);
-			$text=$langs->trans($val[0], isset($val[1])?$val[1]:'', isset($val[2])?$val[2]:'', isset($val[3])?$val[3]:'', isset($val[4])?$val[4]:'');
-			if (! empty($reg[2])) $text.=$reg[2];
-		}
-		print dol_escape_htmltag($text);
-		print '</td>';
+		// Evento + qué se modificó
+		list($evento_txt, $modificado_txt) = listevents_parse_description($langs, $obj->description);
+		print '<td>'.dol_escape_htmltag($evento_txt).'</td>';
+		print '<td>'.($modificado_txt !== '' ? dol_escape_htmltag($modificado_txt) : '<span class="opacitymedium">—</span>').'</td>';
 
 		if (! empty($arrayfields['e.user_agent']['checked']))
 		{
@@ -362,6 +438,7 @@ if ($result)
 		print '<td class="right">';
 		$htmltext='<b>'.$langs->trans("UserAgent").'</b>: '.($obj->user_agent ? dol_string_nohtmltag($obj->user_agent) : $langs->trans("Unknown"));
 		$htmltext.='<br><b>'.$langs->trans("PrefixSession").'</b>: '.($obj->prefix_session ? dol_string_nohtmltag($obj->prefix_session) : $langs->trans("Unknown"));
+		$htmltext.='<br><b>Fecha UTC (almacenada)</b>: '.dol_escape_htmltag($obj->dateevent);
 		print $form->textwithpicto('', $htmltext);
 		print '</td>';
 
@@ -371,8 +448,8 @@ if ($result)
 
 	if ($num == 0)
 	{
-		if ($usefilter) print '<tr><td colspan="6">'.$langs->trans("NoEventFoundWithCriteria").'</td></tr>';
-		else print '<tr><td colspan="6">'.$langs->trans("NoEventOrNoAuditSetup").'</td></tr>';
+		if ($usefilter) print '<tr><td colspan="8">'.$langs->trans("NoEventFoundWithCriteria").'</td></tr>';
+		else print '<tr><td colspan="8">'.$langs->trans("NoEventOrNoAuditSetup").'</td></tr>';
 	}
 	print "</table>";
 	print "</div>";

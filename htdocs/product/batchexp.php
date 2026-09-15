@@ -584,12 +584,31 @@ if ($resql) {
 			$totalwithpmp += $obj->reel;
 		$totalvalue = $totalvalue + ($object->pmp * $obj->reel);
 		$totalvaluesell = $totalvaluesell + ($object->price * $obj->reel);
-		// Batch Detail
+		// Batch Detail (agrupado por mismo lote + caducidad)
 		if ($object->hasbatch()) {
 			$details = Productbatch::findAll($db, $obj->product_stock_id, 1, $object->id, $sortfield, $sortorder, $search_batch, $search_date);
 			if ($details < 0)
 				dol_print_error($db);
+
+			$grouped = array();
 			foreach ($details as $pdluo) {
+				if ($search_batch !== '' && stripos($pdluo->batch, $search_batch) === false) {
+					continue;
+				}
+				$eatby_key = !empty($pdluo->eatby) ? dol_print_date($pdluo->eatby, '%Y%m%d') : '';
+				$key = $pdluo->batch.'|'.$eatby_key;
+				if (!isset($grouped[$key])) {
+					$grouped[$key] = $pdluo;
+				} else {
+					$grouped[$key]->qty += $pdluo->qty;
+					if (empty($grouped[$key]->lotid) && !empty($pdluo->lotid)) {
+						$grouped[$key]->lotid = $pdluo->lotid;
+						$grouped[$key]->id = $pdluo->id;
+					}
+				}
+			}
+
+			foreach ($grouped as $pdluo) {
 				$product_lot_static->id = $pdluo->lotid;
 				$product_lot_static->batch = $pdluo->batch;
 				$product_lot_static->eatby = $pdluo->eatby;

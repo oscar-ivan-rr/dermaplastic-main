@@ -31,6 +31,12 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.formother.class.php';
 if (!empty($conf->stock->enabled)) require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 if (!empty($conf->stock->enabled)) $formproduct = new FormProduct($db);
 
+// Export Excel de productos a caducar (antes de enviar HTML)
+if (GETPOST('action_caducar', 'aZ09') == 'export') {
+	require_once DOL_DOCUMENT_ROOT.'/productos_a_caducar.php';
+	exit;
+}
+
 $usernm=GETPOST('username');
 //$sql = "SELECT fk_soc, rowid FROM ".MAIN_DB_PREFIX."user WHERE login = '". $usernm."'";
 $sql = "SELECT u.fk_soc, u.rowid";
