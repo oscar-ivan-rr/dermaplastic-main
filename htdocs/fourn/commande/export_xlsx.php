@@ -75,10 +75,16 @@ $headers = array(
 	'O1' => $langs->trans('Status'),
 	'P1' => $langs->trans('Billed'),
 );
+$show_datec = GETPOST('show_datec', 'int') ? true : false;
+$lastcol = 'P';
+if ($show_datec) {
+	$headers['Q1'] = $langs->trans('DateCreation');
+	$lastcol = 'Q';
+}
 foreach ($headers as $cell => $label) {
 	$sheet->setCellValue($cell, $label);
 }
-$sheet->getStyle('A1:P1')->getFont()->setBold(true);
+$sheet->getStyle('A1:'.$lastcol.'1')->getFont()->setBold(true);
 
 $rowCount = 2;
 $total_ht = 0.0;
@@ -126,6 +132,9 @@ while ($obj = $db->fetch_object($resql)) {
 	$sheet->setCellValueExplicit('N'.$rowCount, $ttc, PHPExcel_Cell_DataType::TYPE_NUMERIC);
 	$sheet->setCellValue('O'.$rowCount, $status);
 	$sheet->setCellValue('P'.$rowCount, !empty($obj->billed) ? $langs->trans('Yes') : $langs->trans('No'));
+	if ($show_datec) {
+		$sheet->setCellValue('Q'.$rowCount, !empty($obj->date_creation) ? dol_print_date($db->jdate($obj->date_creation), 'dayhour') : '');
+	}
 
 	$total_ht += $ht;
 	$total_vat += $vat;
@@ -140,11 +149,11 @@ $sheet->getStyle('A'.$rowCount)->getFont()->setBold(true);
 $sheet->setCellValueExplicit('L'.$rowCount, $total_ht, PHPExcel_Cell_DataType::TYPE_NUMERIC);
 $sheet->setCellValueExplicit('M'.$rowCount, $total_vat, PHPExcel_Cell_DataType::TYPE_NUMERIC);
 $sheet->setCellValueExplicit('N'.$rowCount, $total_ttc, PHPExcel_Cell_DataType::TYPE_NUMERIC);
-$sheet->getStyle('A'.$rowCount.':P'.$rowCount)->getFont()->setBold(true);
+$sheet->getStyle('A'.$rowCount.':'.$lastcol.$rowCount)->getFont()->setBold(true);
 
 $sheet->getStyle('L2:N'.$rowCount)->getNumberFormat()->setFormatCode('#,##0.00');
 
-foreach (range('A', 'P') as $col) {
+foreach (range('A', $lastcol) as $col) {
 	$sheet->getColumnDimension($col)->setAutoSize(true);
 }
 

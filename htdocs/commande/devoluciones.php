@@ -156,6 +156,7 @@ $arrayfields = array(
 	'c.total_ht'=>array('label'=>"AmountHT", 'checked'=>1),
 	'c.total_vat'=>array('label'=>"AmountVAT", 'checked'=>0),
 	'c.total_ttc'=>array('label'=>"AmountTTCCommande", 'checked'=>0),
+	'total_cost'=>array('label'=>"Total costo", 'checked'=>1),
 	// 'c.datec'=>array('label'=>"DateCreation", 'checked'=>0, 'position'=>500),
 	//'c.tms'=>array('label'=>"DateModificationShort", 'checked'=>0, 'position'=>500),
     // 'c.date_cloture'=>array('label'=>"DateClosing", 'checked'=>0, 'position'=>500),
@@ -293,6 +294,7 @@ $sql .= ' IF(c.facture = 1,
 
 $sql .= ' c.date_creation as date_creation, c.tms as date_update, c.date_cloture as date_cloture,';
 $sql .= " p.rowid as project_id, p.ref as project_ref, p.title as project_label";
+$sql .= ", COALESCE(invcost.total_cost, 0) as total_cost";
 if ($search_categ_cus) $sql .= ", cc.fk_categorie, cc.fk_soc";
 // Add fields from extrafields
 if (!empty($extrafields->attributes[$object->table_element]['label']))
@@ -311,6 +313,22 @@ if (is_array($extrafields->attributes[$object->table_element]['label']) && count
 if ($sall || $search_product_category > 0) $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'commandedet as pd ON c.rowid=pd.fk_commande';
 if ($search_product_category > 0) $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'categorie_product as cp ON cp.fk_product=pd.fk_product';
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."projet as p ON p.rowid = c.fk_projet";
+// Total product cost from related invoices (ecommerce typically has invoices; 0 if none)
+$sql .= " LEFT JOIN (";
+$sql .= " SELECT fk_commande, SUM(line_cost) as total_cost FROM (";
+$sql .= "   SELECT ee.fk_source as fk_commande, (fd.buy_price_ht * fd.qty) as line_cost";
+$sql .= "   FROM ".MAIN_DB_PREFIX."element_element as ee";
+$sql .= "   INNER JOIN ".MAIN_DB_PREFIX."facture as f ON f.rowid = ee.fk_target AND f.fk_statut >= 0";
+$sql .= "   INNER JOIN ".MAIN_DB_PREFIX."facturedet as fd ON fd.fk_facture = f.rowid";
+$sql .= "   WHERE ee.sourcetype = 'commande' AND ee.targettype = 'facture'";
+$sql .= "   UNION ALL";
+$sql .= "   SELECT ee.fk_target as fk_commande, (fd.buy_price_ht * fd.qty) as line_cost";
+$sql .= "   FROM ".MAIN_DB_PREFIX."element_element as ee";
+$sql .= "   INNER JOIN ".MAIN_DB_PREFIX."facture as f ON f.rowid = ee.fk_source AND f.fk_statut >= 0";
+$sql .= "   INNER JOIN ".MAIN_DB_PREFIX."facturedet as fd ON fd.fk_facture = f.rowid";
+$sql .= "   WHERE ee.targettype = 'commande' AND ee.sourcetype = 'facture'";
+$sql .= " ) as costlines GROUP BY fk_commande";
+$sql .= ") as invcost ON invcost.fk_commande = c.rowid";
 // We'll need this table joined to the select in order to filter by sale
 if ($search_sale > 0 || (!$user->rights->societe->client->voir && !$socid)) $sql .= ", ".MAIN_DB_PREFIX."societe_commerciaux as sc";
 if ($search_user > 0)
@@ -815,6 +833,10 @@ if ($resql)
 		print '<input class="flat" type="text" size="5" name="search_total_ttc" value="'.$search_total_ttc.'">';
 		print '</td>';
 	}
+	if (!empty($arrayfields['total_cost']['checked']))
+	{
+		print '<td class="liste_titre right"></td>';
+	}
 	if (!empty($arrayfields['shipments']['checked']))
 	{
 		// Shipments
@@ -916,6 +938,7 @@ if ($resql)
 	if (!empty($arrayfields['c.total_ht']['checked']))       print_liste_field_titre($arrayfields['c.total_ht']['label'], $_SERVER["PHP_SELF"], 'c.total_ht', '', $param, '', $sortfield, $sortorder, 'right ');
 	if (!empty($arrayfields['c.total_vat']['checked']))      print_liste_field_titre($arrayfields['c.total_vat']['label'], $_SERVER["PHP_SELF"], 'c.tva', '', $param, '', $sortfield, $sortorder, 'right ');
 	if (!empty($arrayfields['c.total_ttc']['checked']))      print_liste_field_titre($arrayfields['c.total_ttc']['label'], $_SERVER["PHP_SELF"], 'c.total_ttc', '', $param, '', $sortfield, $sortorder, 'right ');
+	if (!empty($arrayfields['total_cost']['checked']))       print_liste_field_titre($arrayfields['total_cost']['label'], $_SERVER["PHP_SELF"], 'total_cost', '', $param, '', $sortfield, $sortorder, 'right ');
 	if (!empty($arrayfields['shipments']['checked']))		 print_liste_field_titre($arrayfields['shipments']['label'], "", '', '', $param, '', $sortfield, $sortorder, 'right ');
 	if (!empty($arrayfields['ttc_shipments']['checked']))	 print_liste_field_titre($arrayfields['ttc_shipments']['label'], "", '', '', $param, '', $sortfield, $sortorder, 'right ');
 	if (!empty($arrayfields['comm_vs_ship']['checked']))	 print_liste_field_titre($arrayfields['comm_vs_ship']['label'], "", '', '', $param, '', $sortfield, $sortorder, 'right ');
@@ -1352,6 +1375,14 @@ if ($resql)
 				print '<td class="right">'.price($obj->total_ttc)."</td>\n";
 				if (!$column_counter) $totalarray['pos'][$totalarray['nbfield']] = 'c.total_ttc';
 				$totalarray['val']['c.total_ttc'] += $obj->total_ttc;
+				if (!$column_counter) $totalarray['nbfield']++;
+			}
+			// Total product cost from related invoices
+			if (!empty($arrayfields['total_cost']['checked']))
+			{
+				print '<td class="right">'.price($obj->total_cost)."</td>\n";
+				if (!$column_counter) $totalarray['pos'][$totalarray['nbfield']] = 'total_cost';
+				$totalarray['val']['total_cost'] += $obj->total_cost;
 				if (!$column_counter) $totalarray['nbfield']++;
 			}
 			// Shipments

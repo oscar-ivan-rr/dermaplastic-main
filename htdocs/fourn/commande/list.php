@@ -60,6 +60,13 @@ $search_order_endyear    = GETPOST("search_order_endyear", "int");
 $search_order_endmonth   = GETPOST("search_order_endmonth", "int");
 $search_order_endday     = GETPOST("search_order_endday", "int");
 
+$search_datec_startyear  = GETPOST("search_datec_startyear", "int");
+$search_datec_startmonth = GETPOST("search_datec_startmonth", "int");
+$search_datec_startday   = GETPOST("search_datec_startday", "int");
+$search_datec_endyear    = GETPOST("search_datec_endyear", "int");
+$search_datec_endmonth   = GETPOST("search_datec_endmonth", "int");
+$search_datec_endday     = GETPOST("search_datec_endday", "int");
+
 $search_deliveryyear = GETPOST("search_deliveryyear", "int");
 $search_deliverymonth = GETPOST("search_deliverymonth", "int");
 $search_deliveryday = GETPOST("search_deliveryday", "int");
@@ -224,6 +231,12 @@ if (empty($reshook))
 		$search_order_endyear = '';
 		$search_order_endmonth = '';
 		$search_order_endday = '';
+		$search_datec_startyear = '';
+		$search_datec_startmonth = '';
+		$search_datec_startday = '';
+		$search_datec_endyear = '';
+		$search_datec_endmonth = '';
+		$search_datec_endday = '';
 		$search_deliveryday = '';
 		$search_deliverymonth = '';
 		$search_deliveryyear = '';
@@ -571,6 +584,16 @@ if (date('',$search_order_start) > date('',$search_order_end)) {
 	$sql.=" AND cf.date_commande < '".$search_order_endyear."-".$search_order_endmonth."-".$search_order_endday."'";
 }
 
+// Date creation
+$search_datec_start = dol_mktime(0, 0, 0, $search_datec_startmonth, $search_datec_startday, $search_datec_startyear);
+$search_datec_end = dol_mktime(23, 59, 59, $search_datec_endmonth, $search_datec_endday, $search_datec_endyear);
+if ($search_datec_start && $search_datec_end && $search_datec_start > $search_datec_end) {
+	setEventMessage('Verificar rango entre fechas de creación: la fecha inicial es mayor que la final', 'warnings');
+} else {
+	if ($search_datec_start) $sql .= " AND cf.date_creation >= '".$db->idate($search_datec_start)."'";
+	if ($search_datec_end) $sql .= " AND cf.date_creation <= '".$db->idate($search_datec_end)."'";
+}
+
 $sql .= dolSqlDateFilter("cf.date_livraison", $search_deliveryday, $search_deliverymonth, $search_deliveryyear);
 if ($search_town)  $sql .= natural_search('s.town', $search_town);
 if ($search_zip)   $sql .= natural_search("s.zip", $search_zip);
@@ -652,6 +675,12 @@ if ($resql)
 	if ($search_order_endday)     $param .= '&search_order_endday='.urlencode($search_order_endday);
 	if ($search_order_endmonth)   $param .= '&search_order_endmonth='.urlencode($search_order_endmonth);
 	if ($search_order_endyear)    $param .= '&search_order_endyear='.urlencode($search_order_endyear);
+	if ($search_datec_startday)   $param .= '&search_datec_startday='.urlencode($search_datec_startday);
+	if ($search_datec_startmonth) $param .= '&search_datec_startmonth='.urlencode($search_datec_startmonth);
+	if ($search_datec_startyear)  $param .= '&search_datec_startyear='.urlencode($search_datec_startyear);
+	if ($search_datec_endday)     $param .= '&search_datec_endday='.urlencode($search_datec_endday);
+	if ($search_datec_endmonth)   $param .= '&search_datec_endmonth='.urlencode($search_datec_endmonth);
+	if ($search_datec_endyear)    $param .= '&search_datec_endyear='.urlencode($search_datec_endyear);
 	if ($search_deliveryday)   	$param .= '&search_deliveryday='.$search_deliveryday;
 	if ($search_deliverymonth)  $param .= '&search_deliverymonth='.$search_deliverymonth;
 	if ($search_deliveryyear)   $param .= '&search_deliveryyear='.$search_deliveryyear;
@@ -692,9 +721,14 @@ if ($resql)
         $newcardbutton .= dolGetButtonTitle($langs->trans('NewOrder'), '', 'fa fa-plus-circle', DOL_URL_ROOT.'/fourn/commande/card.php?action=create');
     }
 
+	$varpage = empty($contextpage) ? $_SERVER["PHP_SELF"] : $contextpage;
+	$selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, $varpage); // This also change content of $arrayfields
+	if ($massactionbutton) $selectedfields .= $form->showCheckAddButtons('checkforselect', 1);
+
 	print '<form method="POST" id="FormularioExportacion" action="export_xlsx.php">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="sql" value="'.dol_escape_htmltag(base64_encode($sql_export)).'">';
+	print '<input type="hidden" name="show_datec" value="'.(!empty($arrayfields['cf.datec']['checked']) ? 1 : 0).'">';
 	print '</form>';
 	print '<script type="text/javascript">
 	$(document).ready(function() {
@@ -812,10 +846,6 @@ if ($resql)
 		print $moreforfilter;
 		print '</div>';
 	}
-
-	$varpage = empty($contextpage) ? $_SERVER["PHP_SELF"] : $contextpage;
-	$selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, $varpage); // This also change content of $arrayfields
-	if ($massactionbutton) $selectedfields .= $form->showCheckAddButtons('checkforselect', 1);
 
 	print '<div class="div-table-responsive">';
 	print '<table class="tagtable liste'.($moreforfilter ? " listwithfilterbefore" : "").'">'."\n";
@@ -961,7 +991,9 @@ if ($resql)
 	// Date creation
 	if (!empty($arrayfields['cf.datec']['checked']))
 	{
-		print '<td class="liste_titre">';
+		print '<td class="liste_titre nowraponall center">';
+		print "Desde:<br>".$form->select_date($search_datec_start ? $search_datec_start : -1, 'search_datec_start', 0, 0, 1, '', 1, 0, 1);
+		print "<br>Hasta:<br>".$form->select_date($search_datec_end ? $search_datec_end : -1, 'search_datec_end', 0, 0, 1, '', 1, 0, 1);
 		print '</td>';
 	}
 	// Date modification
