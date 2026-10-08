@@ -260,6 +260,10 @@ if (empty($reshook))
 				$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
 			}
 		}
+		// ORDER BY p.ref no es válido sobre un UNION; el filtro de categorías ya envuelve el resultado.
+		if ($search_empty_stock == 1 && empty($searchCategoryProductList)) {
+			$sql = "SELECT * FROM (".$sql.") as p";
+		}
 		$sql .= $db->order($sortfield, $sortorder);
 
 		$result = $db->query($sql);
@@ -830,6 +834,10 @@ else
 				if (!empty($searchCategoryProductSqlList)) {
 					$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
 				}
+			}
+			// ORDER BY p.ref no es válido sobre un UNION; el filtro de categorías ya envuelve el resultado.
+			if ($search_empty_stock == 1 && empty($searchCategoryProductList)) {
+				$sql = "SELECT * FROM (".$sql.") as p";
 			}
 			$sql .= $db->order($sortfield, $sortorder);
 			$nbtotalofrecords = '';
