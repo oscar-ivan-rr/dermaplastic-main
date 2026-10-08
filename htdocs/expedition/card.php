@@ -629,6 +629,11 @@ if (empty($reshook))
 	    }
 	    else
 	    {
+	    	// Salida de stock del CEDIS al validar: avisar a la plataforma (ya hubo commit en valid())
+	    	if (!empty($conf->stock->enabled) && !empty($conf->global->STOCK_CALCULATE_ON_SHIPMENT)) {
+	    		sendShipmentStockNotifications($db, $object->id);
+	    	}
+
 	    	// Define output language
 	    	if (empty($conf->global->MAIN_DISABLE_PDF_AUTOUPDATE))
 	    	{
@@ -861,6 +866,10 @@ if (empty($reshook))
 				$object->fetch($id);
 				$result = $object->setClosed();
 				if ($result >= 0) {
+					// Salida de stock del CEDIS al cerrar: avisar a la plataforma (ya hubo commit en setClosed())
+					if (!empty($conf->stock->enabled) && !empty($conf->global->STOCK_CALCULATE_ON_SHIPMENT_CLOSE)) {
+						sendShipmentStockNotifications($db, $object->id);
+					}
 					header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
 					exit();
 				}

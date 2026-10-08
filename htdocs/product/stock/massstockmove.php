@@ -410,6 +410,11 @@ if ($action == 'createmovements') {
 		}
 		$listofdata = array_values($consolidated);
 
+		// Avisos a la plataforma pendientes: se envian DESPUES del commit para que la
+		// plataforma lea el stock ya confirmado (si se avisa dentro de la transaccion,
+		// la plataforma ve el stock anterior y el marketplace se queda desactualizado).
+		$pendingStockNotifications = array();
+
 		foreach ($listofdata as $val) {
 			$id_product = $val['id_product'];
 			$id_sw = $val['id_sw'];
@@ -472,7 +477,7 @@ if ($action == 'createmovements') {
 					$error++;
 					break;
 				}
-				sendUpdateStockNotification($db, $id_product, $id_sw);
+				$pendingStockNotifications[$id_product . '-' . $id_sw] = array($id_product, $id_sw);
 			} else {
 				$error++;
 				setEventMessage($error_message, 'errors');
@@ -484,6 +489,11 @@ if ($action == 'createmovements') {
 		unset($_SESSION['massstockmove']);
 
 		$db->commit();
+
+		// Stock ya confirmado en BD: ahora si avisar a la plataforma
+		foreach ($pendingStockNotifications as $notif) {
+			sendUpdateStockNotification($db, $notif[0], $notif[1]);
+		}
 		
 		// Release the lock
 		if ($fp) {

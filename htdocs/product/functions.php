@@ -34,6 +34,41 @@ function sendUpdateStockNotification($db, $product_id, $warehouse_id)
     return 0;
 }
 
+/**
+ * Avisa a la plataforma el cambio de stock de cada producto/almacen de un envio.
+ * Llamar DESPUES de que el movimiento de stock ya este confirmado (commit).
+ * sendUpdateStockNotification ya filtra para avisar solo cuando el almacen es CEDIS.
+ *
+ * @param DoliDB $db
+ * @param int    $expedition_id
+ * @return int   Numero de avisos enviados
+ */
+function sendShipmentStockNotifications($db, $expedition_id)
+{
+	$expedition_id = (int) $expedition_id;
+	if ($expedition_id <= 0) {
+		return 0;
+	}
+
+	$sql = "SELECT DISTINCT cd.fk_product, ed.fk_entrepot";
+	$sql .= " FROM ".MAIN_DB_PREFIX."expeditiondet as ed";
+	$sql .= " INNER JOIN ".MAIN_DB_PREFIX."commandedet as cd ON cd.rowid = ed.fk_origin_line";
+	$sql .= " WHERE ed.fk_expedition = ".$expedition_id;
+	$sql .= " AND cd.fk_product > 0 AND ed.fk_entrepot > 0";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return 0;
+	}
+
+	$sent = 0;
+	while ($obj = $db->fetch_object($resql)) {
+		sendUpdateStockNotification($db, $obj->fk_product, $obj->fk_entrepot);
+		$sent++;
+	}
+	return $sent;
+}
+
 function sendPackId($id_orden)
 {
     $url = BACKEND_URL."api/mercadolibre/orders/".$id_orden."/send_shipment_to_erp";
