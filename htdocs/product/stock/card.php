@@ -88,6 +88,78 @@ $arrayfields = array(
 );
 $arrayfields = dol_sort_array($arrayfields, 'position');
 
+/**
+ * SQL único del detalle de almacén (una fila por producto/lote).
+ * Lo usan la lista en pantalla, el export y el total "Número de productos" para que las cantidades cuadren.
+ *
+ * @param	DoliDB	$db
+ * @param	int		$warehouseId
+ * @param	string	$costPriceField				Expresión SQL del costo (alias cost_price)
+ * @param	int		$searchEmptyStock			1 = incluir productos sin registro de stock en el almacén
+ * @param	array	$searchCategoryProductList	Categorías a filtrar (-2 = sin categoría)
+ * @return	string
+ */
+function warehouseStockDetailSql($db, $warehouseId, $costPriceField, $searchEmptyStock = 0, $searchCategoryProductList = array())
+{
+	$warehouseId = (int) $warehouseId;
+
+	$sql = "SELECT p.rowid as rowid, p.ref, p.barcode, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
+	$sql .= " p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, ".$costPriceField.", p.exentoiva,";
+	$sql .= " p.weight, p.length, p.width, p.height, p.volume,";
+	$sql .= " COALESCE(pb.qty, ps.reel) as value, pb.batch as batch, COALESCE(pl.eatby, pb.eatby) as eatby,";
+	$sql .= " e.ref as warehouse_ref, last_in.last_entry as last_entry";
+	$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+	$sql .= " INNER JOIN ".MAIN_DB_PREFIX."product_stock as ps ON ps.fk_product = p.rowid AND ps.fk_entrepot = ".$warehouseId;
+	$sql .= " LEFT JOIN (";
+	$sql .= " SELECT fk_product_stock, batch, SUM(qty) as qty, MIN(eatby) as eatby";
+	$sql .= " FROM ".MAIN_DB_PREFIX."product_batch";
+	$sql .= " GROUP BY fk_product_stock, batch";
+	$sql .= " ) as pb ON pb.fk_product_stock = ps.rowid";
+	$sql .= " LEFT JOIN (";
+	$sql .= " SELECT fk_product, batch, MIN(eatby) as eatby";
+	$sql .= " FROM ".MAIN_DB_PREFIX."product_lot";
+	$sql .= " GROUP BY fk_product, batch";
+	$sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
+	$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
+	$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties as pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ps.fk_entrepot";
+	$sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
+	$sql .= " WHERE fk_entrepot = ".$warehouseId." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
+	$sql .= " WHERE ps.fk_entrepot = ".$warehouseId;
+	$sql .= " AND (pb.batch IS NULL OR pb.qty <> 0 OR ps.reel = 0)";
+
+	if ($searchEmptyStock == 1) {
+		$sql .= " UNION ALL ";
+		$sql .= "SELECT p.rowid as rowid, p.ref, p.barcode, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
+		$sql .= " p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, ".$costPriceField.", p.exentoiva,";
+		$sql .= " p.weight, p.length, p.width, p.height, p.volume,";
+		$sql .= " NULL as value, NULL as batch, NULL as eatby, e.ref as warehouse_ref, NULL as last_entry";
+		$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ".$warehouseId;
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ".$warehouseId;
+		$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = ".$warehouseId.")";
+	}
+
+	// Envolver siempre: ORDER BY p.ref no es válido directo sobre un UNION y permite filtrar por categoría.
+	$sql = "SELECT * FROM (".$sql.") as p";
+
+	// Filtro de categorías con subconsultas (no JOIN) para no duplicar productos que están en varias categorías.
+	if (!empty($searchCategoryProductList)) {
+		$searchCategoryProductSqlList = array();
+		foreach ($searchCategoryProductList as $searchCategoryProduct) {
+			if (intval($searchCategoryProduct) == -2) {
+				$searchCategoryProductSqlList[] = "NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."categorie_product as cp WHERE cp.fk_product = p.rowid)";
+			} elseif (intval($searchCategoryProduct) > 0) {
+				$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".intval($searchCategoryProduct).")";
+			}
+		}
+		if (!empty($searchCategoryProductSqlList)) {
+			$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
+		}
+	}
+
+	return $sql;
+}
+
 // Security check
 //$result=restrictedArea($user,'stock', $id, 'entrepot&stock');
 $result = restrictedArea($user, 'stock');
@@ -209,61 +281,7 @@ if (empty($reshook))
 
 		$cost_price_field = ($object->id != $conf->global->CEDIS_WAREHOUSE) ? 'p.cost_price_sucursal as cost_price' : 'p.cost_price';
 
-		$sql = "SELECT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
-		$sql .= " p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
-		$sql .= " COALESCE(pb.qty, ps.reel) as value, p.weight, p.length, p.width, p.height, p.volume, pe.noidenticfdi as identificacion,";
-		$sql .= " ".$cost_price_field.", pb.batch as batch, COALESCE(pl.eatby, pb.eatby) as eatby, e.ref as warehouse_ref, last_in.last_entry as last_entry";
-		$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
-		$sql .= " INNER JOIN ".MAIN_DB_PREFIX."product_stock as ps ON ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id;
-		$sql .= " LEFT JOIN (";
-		$sql .= " SELECT fk_product_stock, batch, SUM(qty) as qty, MIN(eatby) as eatby";
-		$sql .= " FROM ".MAIN_DB_PREFIX."product_batch";
-		$sql .= " GROUP BY fk_product_stock, batch";
-		$sql .= " ) as pb ON pb.fk_product_stock = ps.rowid";
-		$sql .= " LEFT JOIN (";
-		$sql .= " SELECT fk_product, batch, MIN(eatby) as eatby";
-		$sql .= " FROM ".MAIN_DB_PREFIX."product_lot";
-		$sql .= " GROUP BY fk_product, batch";
-		$sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties as pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ps.fk_entrepot";
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_extrafields as pe ON pe.fk_object = p.rowid";
-		$sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
-		$sql .= " WHERE fk_entrepot = ".(int) $object->id." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
-		$sql .= " WHERE ps.fk_entrepot = ".(int) $object->id;
-		$sql .= " AND (pb.batch IS NULL OR pb.qty <> 0 OR ps.reel = 0)";
-
-		if ($search_empty_stock == 1) {
-			$sql .= " UNION ALL ";
-			$sql .= "SELECT p.rowid as rowid, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
-			$sql .= " p.barcode, p.ref, p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp as ppmp, p.price, p.price_ttc, p.entity,";
-			$sql .= " NULL as value, p.weight, p.length, p.width, p.height, p.volume, NULL as identificacion,";
-			$sql .= " ".$cost_price_field.", NULL as batch, NULL as eatby, e.ref as warehouse_ref, NULL as last_entry";
-			$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
-			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ".(int) $object->id;
-			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ".(int) $object->id;
-			$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id.")";
-		}
-
-		if (!empty($searchCategoryProductList)) {
-			$sql = "SELECT * FROM (".$sql.") as p";
-			$sql .= ' JOIN '.MAIN_DB_PREFIX."categorie_product as cp ON p.rowid = cp.fk_product";
-			$searchCategoryProductSqlList = array();
-			foreach ($searchCategoryProductList as $searchCategoryProduct) {
-				if (intval($searchCategoryProduct) == -2) {
-					$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
-				} elseif (intval($searchCategoryProduct) > 0) {
-					$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
-				}
-			}
-			if (!empty($searchCategoryProductSqlList)) {
-				$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
-			}
-		}
-		// ORDER BY p.ref no es válido sobre un UNION; el filtro de categorías ya envuelve el resultado.
-		if ($search_empty_stock == 1 && empty($searchCategoryProductList)) {
-			$sql = "SELECT * FROM (".$sql.") as p";
-		}
+		$sql = warehouseStockDetailSql($db, $object->id, $cost_price_field, $search_empty_stock, $searchCategoryProductList);
 		$sql .= $db->order($sortfield, $sortorder);
 
 		$result = $db->query($sql);
@@ -556,21 +574,31 @@ else
 	$totalpricecost_iva = 0;
 	$totalpricecost_no_iva = 0;
 
-	if ($object->id != $conf->global->CEDIS_WAREHOUSE) {
-		$sql2 = "SELECT DISTINCT p.rowid, (p.cost_price_sucursal * ps.reel) as total , (p.price * ps.reel) as total_sell, p.exentoiva FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
-	} else {
-		$sql2 = "SELECT DISTINCT p.rowid, (p.cost_price * ps.reel) as total , (p.price * ps.reel) as total_sell, p.exentoiva FROM llx_product as p LEFT JOIN llx_product_stock as ps ON  ps.fk_product = p.rowid ";
-	}
-
-	$sql2 .= " WHERE ps.fk_entrepot = " . $object->id;
-	$resql2 = $db->query($sql2);
-	while ($cost_price = $db->fetch_object($resql2)) {
-		if($cost_price->exentoiva == 0){
-			$totalpriceiva += $cost_price->total_sell;
-			$totalpricecost_iva += $cost_price->total;
+	// Totales de cabecera y de la tabla de IVA desde la misma consulta que la lista y el export (suma por lote).
+	$calcproducts = array('nb' => 0);
+	$calcproductsunique = array('nb' => 0);
+	if ($object->id > 0) {
+		$cost_price_field_totals = ($object->id != $conf->global->CEDIS_WAREHOUSE) ? 'p.cost_price_sucursal as cost_price' : 'p.cost_price';
+		$sql2 = "SELECT d.exentoiva, COUNT(DISTINCT d.rowid) as nb_products, SUM(d.value) as nb_units,";
+		$sql2 .= " SUM(d.cost_price * d.value) as total, SUM(d.price * d.value) as total_sell";
+		$sql2 .= " FROM (".warehouseStockDetailSql($db, $object->id, $cost_price_field_totals).") as d";
+		$sql2 .= " GROUP BY d.exentoiva";
+		$resql2 = $db->query($sql2);
+		if ($resql2) {
+			while ($objtotals = $db->fetch_object($resql2)) {
+				$calcproducts['nb'] += $objtotals->nb_units;
+				$calcproductsunique['nb'] += $objtotals->nb_products; // un producto tiene un solo exentoiva, no se cuenta doble
+				if ($objtotals->exentoiva == 0) {
+					$totalpriceiva += $objtotals->total_sell;
+					$totalpricecost_iva += $objtotals->total;
+				} else {
+					$totalprice_no_iva += $objtotals->total_sell;
+					$totalpricecost_no_iva += $objtotals->total;
+				}
+			}
+			$db->free($resql2);
 		} else {
-			$totalprice_no_iva += $cost_price->total_sell;
-			$totalpricecost_no_iva += $cost_price->total;
+			dol_print_error($db);
 		}
 	}
 	$iva_price_cost = $totalpricecost_iva * 0.16;
@@ -647,9 +675,6 @@ else
 
 			// Description
 			print '<tr><td class="titlefield tdtop">'.$langs->trans("Description").'</td><td>'.nl2br($object->description).'</td></tr>';
-
-			$calcproductsunique = $object->nb_different_products();
-			$calcproducts = $object->nb_products();
 
 			// Total nb of different products
 			print '<tr><td>'.$langs->trans("NumberOfDifferentProducts").'</td><td>';
@@ -786,59 +811,7 @@ else
 
 			$cost_price_field = ($object->id != $conf->global->CEDIS_WAREHOUSE) ? 'p.cost_price_sucursal as cost_price' : 'p.cost_price';
 
-			$sql = "SELECT p.rowid as rowid, p.ref, p.barcode, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
-			$sql .= " p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, ".$cost_price_field.", p.exentoiva,";
-			$sql .= " COALESCE(pb.qty, ps.reel) as value, pb.batch as batch, COALESCE(pl.eatby, pb.eatby) as eatby,";
-			$sql .= " e.ref as warehouse_ref, last_in.last_entry as last_entry";
-			$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
-			$sql .= " INNER JOIN ".MAIN_DB_PREFIX."product_stock as ps ON ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id;
-			$sql .= " LEFT JOIN (";
-			$sql .= " SELECT fk_product_stock, batch, SUM(qty) as qty, MIN(eatby) as eatby";
-			$sql .= " FROM ".MAIN_DB_PREFIX."product_batch";
-			$sql .= " GROUP BY fk_product_stock, batch";
-			$sql .= " ) as pb ON pb.fk_product_stock = ps.rowid";
-			$sql .= " LEFT JOIN (";
-			$sql .= " SELECT fk_product, batch, MIN(eatby) as eatby";
-			$sql .= " FROM ".MAIN_DB_PREFIX."product_lot";
-			$sql .= " GROUP BY fk_product, batch";
-			$sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
-			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
-			$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties as pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ps.fk_entrepot";
-			$sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
-			$sql .= " WHERE fk_entrepot = ".(int) $object->id." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
-			$sql .= " WHERE ps.fk_entrepot = ".(int) $object->id;
-			$sql .= " AND (pb.batch IS NULL OR pb.qty <> 0 OR ps.reel = 0)";
-
-			if ($search_empty_stock == 1) {
-				$sql .= " UNION ALL ";
-				$sql .= "SELECT p.rowid as rowid, p.ref, p.barcode, p.ubication, pw.desiredstock AS stock_min, pw.seuil_stock_alerte AS reorden, pw.stock_max,";
-				$sql .= " p.label as produit, p.tobatch, p.fk_product_type as type, p.pmp, p.price, p.price_ttc, p.entity, ".$cost_price_field.", p.exentoiva,";
-				$sql .= " NULL as value, NULL as batch, NULL as eatby, e.ref as warehouse_ref, NULL as last_entry";
-				$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
-				$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ".(int) $object->id;
-				$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_warehouse_properties AS pw ON pw.fk_product = p.rowid AND pw.fk_entrepot = ".(int) $object->id;
-				$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_stock as ps WHERE ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $object->id.")";
-			}
-
-			if (!empty($searchCategoryProductList)) {
-				$sql = "SELECT * FROM (".$sql.") as p";
-				$sql .= ' JOIN '.MAIN_DB_PREFIX."categorie_product as cp ON p.rowid = cp.fk_product";
-				$searchCategoryProductSqlList = array();
-				foreach ($searchCategoryProductList as $searchCategoryProduct) {
-					if (intval($searchCategoryProduct) == -2) {
-						$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
-					} elseif (intval($searchCategoryProduct) > 0) {
-						$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
-					}
-				}
-				if (!empty($searchCategoryProductSqlList)) {
-					$sql .= " WHERE (".implode(' OR ', $searchCategoryProductSqlList).")";
-				}
-			}
-			// ORDER BY p.ref no es válido sobre un UNION; el filtro de categorías ya envuelve el resultado.
-			if ($search_empty_stock == 1 && empty($searchCategoryProductList)) {
-				$sql = "SELECT * FROM (".$sql.") as p";
-			}
+			$sql = warehouseStockDetailSql($db, $object->id, $cost_price_field, $search_empty_stock, $searchCategoryProductList);
 			$sql .= $db->order($sortfield, $sortorder);
 			$nbtotalofrecords = '';
 			if (empty($conf->global->MAIN_DISABLE_FULL_SCANLIST)) {
