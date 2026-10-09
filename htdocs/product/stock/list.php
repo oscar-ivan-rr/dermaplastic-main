@@ -167,10 +167,12 @@ $title = $langs->trans("ListOfWarehouses");
 // Build and execute select
 // --------------------------------------------------------------------
 $sql = "SELECT e.rowid, e.ref, e.statut, e.lieu, e.address, e.zip, e.town, e.fk_pays, e.fk_parent,";
-$sql .= " SUM(CASE WHEN p.exentoiva = 1 THEN p.cost_price * ps.reel ELSE 0 END) as estimatedvalue_exento,";
-$sql .= " SUM(CASE WHEN p.exentoiva = 0 THEN p.cost_price * ps.reel ELSE 0 END) as estimatedvalue_noexento,";
-$sql .= " SUM(CASE WHEN p.exentoiva = 1 THEN p.price * ps.reel ELSE 0 END) as sellvalue_exento,";
-$sql .= " SUM(CASE WHEN p.exentoiva = 0 THEN p.price * ps.reel ELSE 0 END) as sellvalue_noexento,";
+// Igual que card.php: costo de CEDIS = cost_price, sucursales = cost_price_sucursal; exentoiva NULL/0 = con IVA.
+$cost_price_sql = "(CASE WHEN e.rowid = ".((int) $conf->global->CEDIS_WAREHOUSE)." THEN p.cost_price ELSE p.cost_price_sucursal END)";
+$sql .= " SUM(CASE WHEN COALESCE(p.exentoiva, 0) <> 0 THEN ".$cost_price_sql." * ps.reel ELSE 0 END) as estimatedvalue_exento,";
+$sql .= " SUM(CASE WHEN COALESCE(p.exentoiva, 0) = 0 THEN ".$cost_price_sql." * ps.reel ELSE 0 END) as estimatedvalue_noexento,";
+$sql .= " SUM(CASE WHEN COALESCE(p.exentoiva, 0) <> 0 THEN p.price * ps.reel ELSE 0 END) as sellvalue_exento,";
+$sql .= " SUM(CASE WHEN COALESCE(p.exentoiva, 0) = 0 THEN p.price * ps.reel ELSE 0 END) as sellvalue_noexento,";
 $sql .= " SUM(ps.reel) as stockqty ";
 // Add fields from extrafields
 if (!empty($extrafields->attributes[$object->table_element]['label'])) {
@@ -185,7 +187,15 @@ $sql .= $hookmanager->resPrint;
 $sql = preg_replace('/,\s*$/', '', $sql);
 $sql .= " FROM ".MAIN_DB_PREFIX.$object->table_element." as e";
 if (is_array($extrafields->attributes[$object->table_element]['label']) && count($extrafields->attributes[$object->table_element]['label'])) $sql .= " LEFT JOIN ".MAIN_DB_PREFIX.$object->table_element."_extrafields as ef on (e.rowid = ef.fk_object)";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_stock as ps ON e.rowid = ps.fk_entrepot";
+// Stock por lote (misma regla que warehouseStockDetailSql() en card.php) para que los totales cuadren con la ficha del almacén.
+// ps.reel aquí es la cantidad del lote (o ps.reel si el producto no tiene lotes).
+$sql .= " LEFT JOIN (";
+$sql .= " SELECT pst.fk_entrepot, pst.fk_product, COALESCE(pb.qty, pst.reel) as reel";
+$sql .= " FROM ".MAIN_DB_PREFIX."product_stock as pst";
+$sql .= " INNER JOIN ".MAIN_DB_PREFIX."product as pp ON pp.rowid = pst.fk_product";
+$sql .= " LEFT JOIN (SELECT fk_product_stock, batch, SUM(qty) as qty FROM ".MAIN_DB_PREFIX."product_batch GROUP BY fk_product_stock, batch) as pb ON pb.fk_product_stock = pst.rowid";
+$sql .= " WHERE (pb.batch IS NULL OR pb.qty <> 0 OR pst.reel = 0)";
+$sql .= " ) as ps ON e.rowid = ps.fk_entrepot";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product as p ON ps.fk_product = p.rowid";
 $sql .= " WHERE e.entity IN (".getEntity('stock').")";
 if ($search_ref) $sql .= natural_search("e.ref", $search_ref); // ref
