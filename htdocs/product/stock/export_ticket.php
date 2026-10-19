@@ -75,7 +75,6 @@ $sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
 $sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
 $sql .= " WHERE fk_entrepot = ".(int) $warehouse_id." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
-if (!empty($searchCategoryProductList)) $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX."categorie_product as cp ON p.rowid = cp.fk_product";
 $sql .= " WHERE ps.fk_product = p.rowid";
 $sql .= " AND COALESCE(pb.qty, ps.reel) <> 0";
 $sql .= " AND (pb.batch IS NULL OR pb.qty <> 0)";
@@ -85,7 +84,7 @@ $searchCategoryProductSqlList = array();
 if (!empty($searchCategoryProductList) && is_array($searchCategoryProductList)) {
 	foreach ($searchCategoryProductList as $searchCategoryProduct) {
 		if (intval($searchCategoryProduct) == -2) {
-			$searchCategoryProductSqlList[] = "cp.fk_categorie IS NULL";
+			$searchCategoryProductSqlList[] = "NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."categorie_product as cp WHERE cp.fk_product = p.rowid)";
 		} elseif (intval($searchCategoryProduct) > 0) {
 			$searchCategoryProductSqlList[] = "p.rowid IN (SELECT fk_product FROM ".MAIN_DB_PREFIX."categorie_product WHERE fk_categorie = ".$searchCategoryProduct.")";
 		}

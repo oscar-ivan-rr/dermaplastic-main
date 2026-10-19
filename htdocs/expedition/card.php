@@ -420,7 +420,7 @@ if (empty($reshook))
 							$error++;
 						} else {
 							// Ecommerce invoice is created after shipment commit (Facture::validate opens its own transaction)
-							$ecommerceNames = array('MercadoLibre', 'Walmart', 'Liverpool', 'COPPEL');
+							$ecommerceNames = array('MercadoLibre', 'Walmart', 'Liverpool', 'COPPEL', 'Shopify');
 							$createEcommerceInvoice = (!empty($object->thirdparty->name) && in_array($object->thirdparty->name, $ecommerceNames, true));
 
 							// Define output language
