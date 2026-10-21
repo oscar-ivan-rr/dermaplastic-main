@@ -894,15 +894,48 @@ class MouvementStock extends CommonObject
 		if ($result >= 0)
 		{
 			// No error
-			if ($pdluo->id > 0)		// product_batch record found
+			if ($pdluo->id > 0 && $qty == 0)
 			{
-				//print "Avant ".$pdluo->qty." Apres ".($pdluo->qty + $qty)."<br>";
-				$pdluo->qty += $qty;
-				if ($pdluo->qty == 0)
+				$result = 1;
+			}
+			elseif ($pdluo->id > 0)		// product_batch record found
+			{
+				// La cantidad se suma en la BD (qty = qty + N) y no en PHP: la cantidad leida por
+				// find()/fetch() puede estar desactualizada si otra transferencia concurrente ya
+				// modifico el lote (REPEATABLE READ), y escribir un valor absoluto pisaba su descuento.
+				$sql = "UPDATE ".MAIN_DB_PREFIX."product_batch SET qty = qty + ".price2num($qty);
+				$sql .= " WHERE rowid = ".((int) $pdluo->id);
+				$resql = $this->db->query($sql);
+				if (! $resql)
 				{
-					$result=$pdluo->delete($user, 1);
-				} else {
-					$result=$pdluo->update($user, 1);
+					$this->errors[] = $this->db->lasterror();
+					$result = -1;
+				}
+				elseif ($this->db->affected_rows($resql) == 0)
+				{
+					// Otra transaccion ya borro el registro (llego a 0): se vuelve a crear
+					if (is_numeric($dluo)) {
+						$result = -2;	// El llamador lo recrea con fk_product_stock
+					} else {
+						$pdluo->id = 0;
+						$pdluo->fk_product_stock = $vfk_product_stock;
+						$pdluo->qty = $qty;
+						$pdluo->eatby = empty($dluo['eatby']) ? '' : $dluo['eatby'];
+						$pdluo->sellby = empty($dluo['sellby']) ? '' : $dluo['sellby'];
+						$pdluo->batch = $vbatchnumber;
+						$result = $pdluo->create($user, 1);
+						if ($result < 0)
+						{
+							$this->error = $pdluo->error;
+							$this->errors = $pdluo->errors;
+						}
+					}
+				}
+				else
+				{
+					$sql = "DELETE FROM ".MAIN_DB_PREFIX."product_batch WHERE rowid = ".((int) $pdluo->id)." AND qty = 0";
+					$result = $this->db->query($sql) ? 1 : -1;
+					if ($result < 0) $this->errors[] = $this->db->lasterror();
 				}
 			}
 			else					// product_batch record not found
