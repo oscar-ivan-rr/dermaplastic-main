@@ -3321,7 +3321,9 @@ class Facture extends CommonInvoice
 								else $result = $mouvP->livraison($user, $this->lines[$i]->fk_product, $idwarehouse, $this->lines[$i]->qty, $this->lines[$i]->subprice, $langs->trans("InvoiceValidatedInDolibarr", $num), '', $eatby, $sellby, $batch);
 								if ($result < 0) {
 									$error++;
-									$this->error = $mouvP->error;
+									$this->error = $mouvP->error ? $mouvP->error : implode(', ', $mouvP->errors);
+									// Stop here: if MySQL already rolled back the transaction (deadlock), next lines would be autocommitted
+									break;
 								}
 							}
 						}

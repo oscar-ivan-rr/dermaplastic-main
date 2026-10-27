@@ -744,13 +744,19 @@ if ($action == "delete") {
 				$savconst = $conf->global->STOCK_CALCULATE_ON_BILL;
 				$conf->global->STOCK_CALCULATE_ON_BILL = 1;
 				
-				$invoice->validate($user, '', $conf->global->$constantforkey);
-				$invoice->set_paid($user);
-				
+				$resvalid = $invoice->validate($user, '', $conf->global->$constantforkey);
+
 				$conf->global->STOCK_CALCULATE_ON_BILL = $savconst;
-				
-				$sql = "UPDATE ".MAIN_DB_PREFIX."paiement set num_paiement='$invoice->ref' where rowid IN (SELECT fk_paiement FROM ".MAIN_DB_PREFIX."paiement_facture WHERE fk_facture = $placeid)";
-				$db->query($sql);
+
+				// Only mark as paid when it really got a definitive ref, otherwise it stays paid with a (PROV-POS...) ref and blocks the terminal
+				if ($resvalid > 0) {
+					$invoice->set_paid($user);
+
+					$sql = "UPDATE ".MAIN_DB_PREFIX."paiement set num_paiement='$invoice->ref' where rowid IN (SELECT fk_paiement FROM ".MAIN_DB_PREFIX."paiement_facture WHERE fk_facture = $placeid)";
+					$db->query($sql);
+				} else {
+					dol_htmloutput_errors($invoice->error, $invoice->errors, 1);
+				}
 			}
 		}
     }

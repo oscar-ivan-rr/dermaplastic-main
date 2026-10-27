@@ -999,10 +999,12 @@ class Expedition extends CommonObject
 		}
 		$resql = $this->db->query($sql);
 
-		$sql1 = "DELETE FROM ".MAIN_DB_PREFIX."product_stock WHERE reel = 0 AND rowid NOT IN (SELECT fk_product_stock FROM ".MAIN_DB_PREFIX."product_batch as pb)";
+		// Limited to this product/warehouse to avoid deadlocks with other stock movements
+		$sql1 = "DELETE ps FROM ".MAIN_DB_PREFIX."product_stock as ps WHERE ps.fk_product = ".((int) $idPrd)." AND ps.fk_entrepot = ".((int) $idAlmacen)." AND ps.reel = 0";
+		$sql1.= " AND NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_batch as pb WHERE pb.fk_product_stock = ps.rowid)";
 		$resql1 = $this->db->query($sql1);
 
-		if($resql){
+		if($resql && $resql1){
 			return 1;
 		}else{
 			return -1;

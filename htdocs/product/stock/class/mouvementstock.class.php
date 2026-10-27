@@ -543,9 +543,19 @@ class MouvementStock extends CommonObject
 
 		    // If stock is now 0, we can remove entry into llx_product_stock, but only if there is no child lines into llx_product_batch (detail of batch, because we can imagine
 		    // having a lot1/qty=X and lot2/qty=-X, so 0 but we must not loose repartition of different lot.
-		    $sql="DELETE FROM ".MAIN_DB_PREFIX."product_stock WHERE reel = 0 AND rowid NOT IN (SELECT fk_product_stock FROM ".MAIN_DB_PREFIX."product_batch as pb)";
-		    $resql=$this->db->query($sql);
-		    // We do not test error, it can fails if there is child in batch details
+		    // Limited to this product/warehouse: a table-wide delete deadlocks between POS terminals and MySQL then rolls back the whole transaction
+		    if (! $error)
+		    {
+			    $sql = "DELETE ps FROM ".MAIN_DB_PREFIX."product_stock as ps";
+			    $sql.= " WHERE ps.fk_product = ".((int) $fk_product)." AND ps.fk_entrepot = ".((int) $entrepot_id)." AND ps.reel = 0";
+			    $sql.= " AND NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product_batch as pb WHERE pb.fk_product_stock = ps.rowid)";
+			    $resql=$this->db->query($sql);
+			    if (! $resql)
+			    {
+				    $this->errors[]=$this->db->lasterror();
+				    $error = -5;
+			    }
+		    }
 		}
 
 		// Add movement for sub products (recursive call)
