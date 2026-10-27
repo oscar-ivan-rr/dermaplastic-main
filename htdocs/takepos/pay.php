@@ -331,7 +331,7 @@ else print "var received=0;";
 					$('#promo-apply-btn').prop('disabled', true).css({'background':'#888', 'cursor':'not-allowed'});
 					setTimeout(function() { location.reload(); }, 900);
 				} else {
-					$('#promo-msg').html('<span style="color:#f2dede;">Código inválido</span>');
+					$('#promo-msg').html('<span style="color:#f2dede;">' + (resp.error || 'Código inválido') + '</span>');
 				}
 			},
 			error: function() {

@@ -134,13 +134,45 @@ else $soc->fetch($conf->global->$constforcompanyid);
  */
 
 if ($action == "applypromo") {
-    $PROMO_CODES = array('PROMOS5' => 5);
     $code = strtoupper(trim(GETPOST('code', 'alpha')));
     header('Content-Type: application/json');
-    if ($placeid > 0 && isset($PROMO_CODES[$code])) {
-        $_SESSION['takepos_promo_discount'] = $PROMO_CODES[$code];
+
+    // Single-use codes: the code is reserved for this draft invoice and marked as used when the sale is paid
+    $promo = null;
+    if ($placeid > 0 && $code != '') {
+        $sql = "SELECT rowid, discount, date_used FROM ".MAIN_DB_PREFIX."takepos_promo_code";
+        $sql .= " WHERE code = '".$db->escape($code)."'";
+        $resql = $db->query($sql);
+        if ($resql) $promo = $db->fetch_object($resql);
+    }
+    if (!$promo) {
+        echo json_encode(array('success' => false, 'error' => 'Código de promoción inválido'));
+        exit;
+    }
+    if (!empty($promo->date_used)) {
+        echo json_encode(array('success' => false, 'error' => 'Este código ya fue utilizado'));
+        exit;
+    }
+    // Reserve atomically. A reservation held by an invoice that is no longer a draft (deleted or abandoned) is released.
+    $sql = "UPDATE ".MAIN_DB_PREFIX."takepos_promo_code SET fk_facture = ".((int) $placeid);
+    $sql .= " WHERE rowid = ".((int) $promo->rowid)." AND date_used IS NULL";
+    $sql .= " AND (fk_facture IS NULL OR fk_facture = ".((int) $placeid);
+    $sql .= " OR fk_facture NOT IN (SELECT f.rowid FROM ".MAIN_DB_PREFIX."facture f WHERE f.fk_statut = ".Facture::STATUS_DRAFT."))";
+    $resql = $db->query($sql);
+    if (!$resql || $db->affected_rows($resql) < 1) {
+        // affected_rows is 0 also when the code was already reserved for this same invoice, so check that case
+        $sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."takepos_promo_code WHERE rowid = ".((int) $promo->rowid)." AND fk_facture = ".((int) $placeid)." AND date_used IS NULL";
+        $resql = $db->query($sql);
+        if (!$resql || !$db->fetch_object($resql)) {
+            echo json_encode(array('success' => false, 'error' => 'Este código está en uso en otra venta'));
+            exit;
+        }
+    }
+
+    if ($placeid > 0) {
+        $_SESSION['takepos_promo_discount'] = (float) $promo->discount;
         $_SESSION['takepos_promo_code'] = $code;
-        $promoDiscount = $PROMO_CODES[$code];
+        $promoDiscount = (float) $promo->discount;
         $invoice->fetch($placeid);
         foreach ($invoice->lines as $line) {
             $combined = min(100, $line->remise_percent + $promoDiscount);
@@ -158,6 +190,10 @@ if ($action == "removepromo") {
     header('Content-Type: application/json');
     if ($placeid > 0 && !empty($_SESSION['takepos_promo_discount'])) {
         $promoDiscount = (float)$_SESSION['takepos_promo_discount'];
+        // Release the reservation so the code can be used in another sale
+        $sql = "UPDATE ".MAIN_DB_PREFIX."takepos_promo_code SET fk_facture = NULL";
+        $sql .= " WHERE code = '".$db->escape($_SESSION['takepos_promo_code'])."' AND fk_facture = ".((int) $placeid)." AND date_used IS NULL";
+        $db->query($sql);
         unset($_SESSION['takepos_promo_discount'], $_SESSION['takepos_promo_code']);
         $invoice->fetch($placeid);
         foreach ($invoice->lines as $line) {
@@ -439,6 +475,11 @@ if ($action == 'valid' && $user->rights->facture->creer) {
 		if ($result_payment < 0) dol_print_error($db, $object->error);
 	}
 	//* ========= End Set facture paiement method from object paiement ==================
+
+	// Mark the single-use promo code reserved for this invoice as used
+	$sql = "UPDATE ".MAIN_DB_PREFIX."takepos_promo_code SET date_used = '".$db->idate(dol_now())."'";
+	$sql .= " WHERE fk_facture = ".((int) $invoice->id)." AND date_used IS NULL";
+	$db->query($sql);
 
 	unset($_SESSION['takepos_promo_discount'], $_SESSION['takepos_promo_code']);
 }
