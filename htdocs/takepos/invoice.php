@@ -482,6 +482,7 @@ if ($action == 'valid' && $user->rights->facture->creer) {
 	$db->query($sql);
 
 	unset($_SESSION['takepos_promo_discount'], $_SESSION['takepos_promo_code']);
+	unset($_SESSION['takepos_manual_discount_lines'][$invoice->id]);
 }
 
 if ($action == 'history')
@@ -753,6 +754,7 @@ if ($action == "delete") {
 			foreach ($invoice->lines as $line) {
 				$res = $invoice->deleteline($line->id);
 			}
+			unset($_SESSION['takepos_manual_discount_lines'][$placeid]);
         	// $sql = "DELETE FROM ".MAIN_DB_PREFIX."facturedet_extrafields where fk_object = ".$placeid;
         	// $resql1 = $db->query($sql);
         	// $sql = "DELETE FROM ".MAIN_DB_PREFIX."facturedet where fk_facture = ".$placeid;
@@ -880,6 +882,8 @@ if ($action == "updateqty")
 								break;
 							}
 							$result = $invoice->addline($prod->description, $price, $aux1, $tva_tx, $localtax1_tx, $localtax2_tx, $prod->id, $lineRemisePercent, '', 0, 0, 0, '', $price_base_type, $price_ttc, $prod->type, -1, 0, '', 0, 0, null, 0, '', 0, 100, '', null, 0, $obj->batch);
+							// La línea del siguiente lote hereda la marca de descuento manual
+							if ($result > 0 && !empty($_SESSION['takepos_manual_discount_lines'][$placeid][$line->id])) $_SESSION['takepos_manual_discount_lines'][$placeid][$result] = true;
 							$sql = "UPDATE " . MAIN_DB_PREFIX . "facturedet_extrafields SET medico='N/A' WHERE fk_object=" . $result;
 							$resql = $db->query($sql);
 						}
@@ -917,6 +921,104 @@ if ($action == "updateprice")
 // (protege el 0% u otro % bajado a mano; ver ticket HMFA2607-12159).
 // =====================================================================
 
+// =====================================================================
+// Promo HIDRATACIÓN + SOLARES por pares:
+// Cada pieza HIDRATACIÓN se empareja con una pieza SOLARES y ambas llevan 20%.
+// Se emparejan primero las piezas más caras de cada categoría. Si una línea
+// tiene más piezas que pares, se separa en una línea con promo y otra sin promo.
+// Se recalcula en cada petición (idempotente).
+// =====================================================================
+$PROMO_HS_PCT = 20;
+$PROMO_HS_CATS = array('HIDRATACIÓN', 'SOLARES');
+
+if ($placeid > 0 && $invoice->statut == Facture::STATUS_DRAFT && $PROMO_HS_PCT > 0) {
+	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	include_once DOL_DOCUMENT_ROOT.'/takepos/lib/discounts.lib.php';
+
+	// Las categorías se buscan por nombre (la intercalación ignora mayúsculas y acentos) para no depender del ID de cada base
+	$promoCatIds = array(); // rowid de categoría => índice en $PROMO_HS_CATS
+	foreach ($PROMO_HS_CATS as $idx => $catLabel) {
+		$sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."categorie";
+		$sql .= " WHERE type = 0 AND entity IN (".getEntity('category').") AND label = '".$db->escape($catLabel)."'";
+		$resql = $db->query($sql);
+		if ($resql) {
+			while ($obj = $db->fetch_object($resql)) $promoCatIds[(int) $obj->rowid] = $idx;
+		}
+	}
+
+	if (count(array_unique($promoCatIds)) == count($PROMO_HS_CATS)) {
+		$customerRemise = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
+		// El código de promoción se suma encima del descuento de la línea, hay que conservarlo al recalcular
+		$promoCodeDiscount = !empty($_SESSION['takepos_promo_discount']) ? (float) $_SESSION['takepos_promo_discount'] : 0;
+
+		$promoByCat = array_fill(0, count($PROMO_HS_CATS), array());
+		foreach ($invoice->lines as $line) {
+			if (empty($line->fk_product) || $line->qty <= 0) continue;
+			$c = new Categorie($db);
+			$prodCatIds = $c->containing($line->fk_product, Categorie::TYPE_PRODUCT, 'id');
+			if (!is_array($prodCatIds)) continue;
+			$lineCats = array_intersect_key($promoCatIds, array_flip($prodCatIds));
+			if (empty($lineCats)) continue;
+
+			$prod = new Product($db);
+			$prod->fetch($line->fk_product);
+			$base = min(100, takepos_product_base_discount($prod, $customerRemise) + $promoCodeDiscount);
+
+			// Las líneas con descuento manual cuentan para formar pares pero su descuento se respeta tal cual
+			// (cambiado a mano en el PTV, o puesto por debajo del base, incluido 0%)
+			$manual = !empty($_SESSION['takepos_manual_discount_lines'][$placeid][$line->id])
+				|| takepos_is_manual_discount_below_base($line->remise_percent, $base);
+
+			// Un producto en ambas categorías cuenta solo en la primera
+			$promoByCat[min($lineCats)][] = array('line' => $line, 'base' => $base, 'manual' => $manual, 'promoQty' => 0);
+		}
+
+		// Número de pares y reparto de las piezas con promo, de la más cara a la más barata
+		$pairs = null;
+		foreach ($promoByCat as $idx => $entries) {
+			$catQty = 0;
+			foreach ($entries as $entry) $catQty += (int) $entry['line']->qty;
+			$pairs = ($pairs === null) ? $catQty : min($pairs, $catQty);
+		}
+		$promoEntries = array();
+		foreach ($promoByCat as $idx => $entries) {
+			usort($entries, function ($a, $b) {
+				if ($a['line']->subprice != $b['line']->subprice) return ($a['line']->subprice < $b['line']->subprice) ? 1 : -1;
+				return $a['line']->id - $b['line']->id;
+			});
+			$remaining = $pairs;
+			foreach ($entries as $entry) {
+				$entry['promoQty'] = min((int) $entry['line']->qty, $remaining);
+				$remaining -= $entry['promoQty'];
+				$promoEntries[] = $entry;
+			}
+		}
+
+		$changed = false;
+		foreach ($promoEntries as $entry) {
+			if ($entry['manual']) continue;
+			$line = $entry['line'];
+			// No reducir un descuento base ya mayor que la promo
+			$promoTarget = min(100, max($entry['base'], $PROMO_HS_PCT + $promoCodeDiscount));
+
+			if ($entry['promoQty'] > 0 && $entry['promoQty'] < $line->qty) {
+				// Separar: las piezas emparejadas se quedan con la promo y el resto pasa a una línea nueva sin promo
+				$restQty = $line->qty - $entry['promoQty'];
+				$invoice->updateline($line->id, $line->desc, $line->subprice, $entry['promoQty'], $promoTarget, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+				$invoice->addline($line->desc, $line->subprice, $restQty, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, $line->fk_product, $entry['base'], $line->date_start, $line->date_end, 0, $line->info_bits, '', 'HT', 0, $line->product_type, -1, $line->special_code, '', 0, $line->fk_parent_line, $line->fk_fournprice, $line->pa_ht, $line->label, $line->array_options, $line->situation_percent, 0, $line->fk_unit);
+				$changed = true;
+				continue;
+			}
+
+			$target = ($entry['promoQty'] > 0) ? $promoTarget : $entry['base'];
+			if ((float) $line->remise_percent == (float) $target) continue;
+			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $target, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+			$changed = true;
+		}
+		if ($changed) $invoice->fetch($placeid);
+	}
+}
+
 if ($action == "updatereduction")
 {
     foreach ($invoice->lines as $line)
@@ -931,7 +1033,11 @@ if ($action == "updatereduction")
 		// 	dol_htmloutput_errors("Descuento maximo superado, se aplico ".$prod->desc_max."% de descuento.", null, 1);
 		// 	if ($line->id == $idline) { $result = $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $prod->desc_max, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);}
 		// }
-		if ($line->id == $idline) { $result = $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $number, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);}
+		if ($line->id == $idline) {
+			$result = $invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $number, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+			// Marcar la línea como manual para que las promos no recalculen su descuento
+			if ($result > 0) $_SESSION['takepos_manual_discount_lines'][$placeid][$line->id] = true;
+		}
 	}
 
     $invoice->fetch($placeid);
