@@ -26,7 +26,8 @@ $searchCategoryProductList = GETPOST('search_category_product_list', 'array');
 if (!is_array($searchCategoryProductList)) $searchCategoryProductList = array();
 $sortfield = GETPOST('sortfield');
 $sortorder = GETPOST('sortorder');
-if (empty($sortfield)) $sortfield = 'p.ref';
+// El ticket agrupa por producto, así que solo se puede ordenar por columnas de producto/stock
+if (!in_array($sortfield, array('p.ref', 'p.barcode', 'value'))) $sortfield = 'p.ref';
 if (empty($sortorder)) $sortorder = 'ASC';
 
 // create new PDF document
@@ -58,27 +59,10 @@ $pdf->setJPEGQuality(100);
 $pdf->AddPage();
 
 $sql = "SELECT p.rowid as rowid, p.ref, p.barcode as barcode,";
-$sql .= " COALESCE(pb.qty, ps.reel) as value, pb.batch as batch, COALESCE(pl.eatby, pb.eatby) as eatby,";
-$sql .= " e.ref as warehouse_ref, last_in.last_entry as last_entry";
+$sql .= " ps.reel as value";
 $sql .= " FROM ".MAIN_DB_PREFIX."product as p";
 $sql .= " INNER JOIN ".MAIN_DB_PREFIX."product_stock as ps ON ps.fk_product = p.rowid AND ps.fk_entrepot = ".(int) $warehouse_id;
-$sql .= " LEFT JOIN (";
-$sql .= " SELECT fk_product_stock, batch, SUM(qty) as qty, MIN(eatby) as eatby";
-$sql .= " FROM ".MAIN_DB_PREFIX."product_batch";
-$sql .= " GROUP BY fk_product_stock, batch";
-$sql .= " ) as pb ON pb.fk_product_stock = ps.rowid";
-$sql .= " LEFT JOIN (";
-$sql .= " SELECT fk_product, batch, MIN(eatby) as eatby";
-$sql .= " FROM ".MAIN_DB_PREFIX."product_lot";
-$sql .= " GROUP BY fk_product, batch";
-$sql .= " ) as pl ON pl.fk_product = p.rowid AND pl.batch = pb.batch";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entrepot as e ON e.rowid = ps.fk_entrepot";
-$sql .= " LEFT JOIN (SELECT fk_product, MAX(datem) as last_entry FROM ".MAIN_DB_PREFIX."stock_mouvement";
-$sql .= " WHERE fk_entrepot = ".(int) $warehouse_id." AND value > 0 GROUP BY fk_product) as last_in ON last_in.fk_product = p.rowid";
-$sql .= " WHERE ps.fk_product = p.rowid";
-$sql .= " AND COALESCE(pb.qty, ps.reel) <> 0";
-$sql .= " AND (pb.batch IS NULL OR pb.qty <> 0)";
-$sql .= " AND ps.fk_entrepot = ".(int) $warehouse_id;
+$sql .= " WHERE ps.reel <> 0";
 
 $searchCategoryProductSqlList = array();
 if (!empty($searchCategoryProductList) && is_array($searchCategoryProductList)) {
@@ -119,11 +103,8 @@ if ($result && $db->num_rows($result) > 0) {
 
     <tbody>';
 	while ($row = $db->fetch_object($result)) {
-		$lote_txt = !empty($row->batch) ? ' | Lote: '.$row->batch : '';
-		$cad_txt = !empty($row->eatby) ? ' | Cad: '.dol_print_date($db->jdate($row->eatby), 'day') : '';
-		$entrada_txt = !empty($row->last_entry) ? ' | Entrada: '.dol_print_date($db->jdate($row->last_entry), 'day') : '';
 		$html .= '<tr style="font-size: 7;">
-            <td colspan="4" style="text-align: left;"> '.$row->ref.$lote_txt.$cad_txt.$entrada_txt.'</td>
+            <td colspan="4" style="text-align: left;"> '.$row->ref.'</td>
         </tr>
         <tr>
 		<td style="font-size: 8;"> '.$row->barcode.'</td>
