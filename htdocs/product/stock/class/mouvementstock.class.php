@@ -505,7 +505,7 @@ class MouvementStock extends CommonObject
 			}
 
 			// Update detail stock for batch product
-			if (! $error /* && ! empty($conf->productbatch->enabled) && $product->hasbatch() && ! $skip_batch */)
+			if (! $error && ($id_product_batch > 0 || !empty($batch)) /* && ! empty($conf->productbatch->enabled) && $product->hasbatch() && ! $skip_batch */)
 			{
 				if ($id_product_batch > 0)
 				{
