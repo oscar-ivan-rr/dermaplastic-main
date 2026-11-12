@@ -70,9 +70,11 @@ $companystatic=new Societe($db);
 $facture = new Facture($db);
 $ticket = new Ticket($db);
 
+// En facturas el usuario es quien validó/cobró la venta (igual que el ticket impreso): en TakePOS el
+// borrador pudo iniciarlo otro usuario de la misma terminal. Los tickets del POS conservan su autor.
 $sql= "SELECT id, ref, date, cliente, status, subtotal, total, autor, tipo
         FROM (
-                SELECT f.rowid AS id, f.ref AS ref, s.nom as name, f.datef AS date, f.fk_soc AS cliente, f.fk_statut AS status, f.total AS subtotal, f.total_ttc AS total, f.fk_user_author AS autor, 'Factura' as tipo
+                SELECT f.rowid AS id, f.ref AS ref, s.nom as name, f.datef AS date, f.fk_soc AS cliente, f.fk_statut AS status, f.total AS subtotal, f.total_ttc AS total, COALESCE(f.fk_user_valid, f.fk_user_author) AS autor, 'Factura' as tipo
                     FROM ".MAIN_DB_PREFIX."facture AS f
                         LEFT JOIN llx_societe AS s ON f.fk_soc=s.rowid
                         WHERE f.fk_statut IN (1,2)

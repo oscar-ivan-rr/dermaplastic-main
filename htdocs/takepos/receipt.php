@@ -148,13 +148,22 @@ $resql = $db->query($sql);
 $obj2 = $db->fetch_object($resql);
 $typep = $obj2 -> type;
 
+// Vendedor = quien validó/cobró la venta, para que una reimpresión hecha por otro usuario
+// muestre el mismo nombre. Si aún es borrador (sin validador) se usa el usuario en sesión.
+$sellerlogin = $user->login;
+if ($object->user_valid > 0 && $object->user_valid != $user->id)
+{
+    $selleruser = new User($db);
+    if ($selleruser->fetch($object->user_valid) > 0) $sellerlogin = $selleruser->login;
+}
+
 $html .= '<p style="line-height:0; font-size: 8;">Fecha y hora: '.dol_print_date($object->date_modification, 'dayhour', 'tzuser').'</p>
 <br>
 <p style="line-height:0; font-size: 8;">'.$langs->trans("Customer").': '.$soc -> name.'</p>
 <br>
 <p style="line-height:0; font-size: 8;">Tipo: Contado</p>
 <br>
-<p style="line-height:0; font-size: 8;">Vendedor: '.$user -> login.'</p>
+<p style="line-height:0; font-size: 8;">Vendedor: '.$sellerlogin.'</p>
 <br>';
 
 // Información de artículos vendidos

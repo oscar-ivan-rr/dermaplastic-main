@@ -270,12 +270,17 @@ if ($sqlexport) {
 		$total_price = 0;
 		while ($row = $db->fetch_object($result)) {
 			if(empty($group2)) {
+				// El vendedor es quien valida/cobra la venta (igual que el ticket impreso). En TakePOS el
+				// borrador pudo iniciarlo otro usuario de la misma terminal, por eso no se usa el autor.
+				$facturestatic->user_creation = null;
+				$facturestatic->user_validation = null;
 				$facturestatic->info($row->facid);
+				$seller = $facturestatic->user_validation ?: $facturestatic->user_creation;
 			}
 			$categories = $cat->containing($row->prodid, 'product', 'label');
 			$out = array();
 			if (empty($group2)) array_push($out, $row->ref ? utf8_decode($row->ref) : '');
-			if (empty($group2)) array_push($out, utf8_decode($facturestatic->user_creation->firstname . ' ' . $facturestatic->user_creation->lastname));
+			if (empty($group2)) array_push($out, $seller ? utf8_decode($seller->firstname . ' ' . $seller->lastname) : '');
 			array_push($out, utf8_decode($row->barcode));
 			array_push($out, $row->prodref ? utf8_decode($row->prodref) : '');
 			if (empty($group2)) array_push($out, $row->name ? utf8_decode($row->name) : '');
@@ -504,7 +509,11 @@ if ($resql > 0) {
 		if (empty($group)) {
 			$facturestatic->id  = $row->facid;
 			$facturestatic->ref = $row->ref;
+			// Mismo criterio que la exportación: vendedor = quien validó/cobró la venta
+			$facturestatic->user_creation = null;
+			$facturestatic->user_validation = null;
 			$facturestatic->info($row->facid);
+			$seller = $facturestatic->user_validation ?: $facturestatic->user_creation;
 		}
 
 		$productstatic->id           = $row->prodid;
@@ -532,7 +541,7 @@ if ($resql > 0) {
 		$total_profit_without_disc += $row->profit_without_disc;
 
 		if (empty($group)) print "<td>" . $facturestatic->getNomUrl(1) . "</td>";
-		if(empty($group)) print "<td>" . $facturestatic->user_creation->getNomUrl(1) . "</td>";
+		if(empty($group)) print "<td>" . ($seller ? $seller->getNomUrl(1) : '') . "</td>";
 		print "<td>" . $productstatic->barcode . "</td>";
 		print "<td>" . $productstatic->getNomUrl(1) . "</td>";
 		if (empty($group)) print "<td>" . $societestatic->getNomUrl(1) . "</td>";
