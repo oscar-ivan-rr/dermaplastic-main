@@ -1019,6 +1019,77 @@ if ($placeid > 0 && $invoice->statut == Facture::STATUS_DRAFT && $PROMO_HS_PCT >
 	}
 }
 
+// =====================================================================
+// Promo CAPILAR por cantidad:
+// 2 piezas CAPILAR = 15%, 3 = 20%, 4 o más = 25%.
+// El % aplica a todas las líneas CAPILAR. Se cuenta la qty total.
+// Se recalcula en cada petición (idempotente).
+// =====================================================================
+$PROMO_CAPILAR_CAT = 'CAPILAR';
+$PROMO_CAPILAR_TIERS = array(4 => 25, 3 => 20, 2 => 15); // piezas mínimas => %, de mayor a menor
+
+if ($placeid > 0 && $invoice->statut == Facture::STATUS_DRAFT && !empty($PROMO_CAPILAR_TIERS)) {
+	include_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	include_once DOL_DOCUMENT_ROOT.'/takepos/lib/discounts.lib.php';
+
+	// La categoría se busca por nombre para no depender del ID de cada base
+	$capilarCatIds = array();
+	$sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."categorie";
+	$sql .= " WHERE type = 0 AND entity IN (".getEntity('category').") AND label = '".$db->escape($PROMO_CAPILAR_CAT)."'";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) $capilarCatIds[] = (int) $obj->rowid;
+	}
+
+	if (!empty($capilarCatIds)) {
+		$customerRemise = (is_object($soc) && !empty($soc->remise_percent)) ? (float) $soc->remise_percent : 0;
+		$promoCodeDiscount = !empty($_SESSION['takepos_promo_discount']) ? (float) $_SESSION['takepos_promo_discount'] : 0;
+		// Productos que también están en la promo HIDRATACIÓN + SOLARES se quedan con esa promo
+		$hsCatIds = !empty($promoCatIds) ? array_keys($promoCatIds) : array();
+
+		$capilarEntries = array();
+		$capilarQty = 0;
+		foreach ($invoice->lines as $line) {
+			if (empty($line->fk_product) || $line->qty <= 0) continue;
+			$c = new Categorie($db);
+			$prodCatIds = $c->containing($line->fk_product, Categorie::TYPE_PRODUCT, 'id');
+			if (!is_array($prodCatIds) || !array_intersect($capilarCatIds, $prodCatIds)) continue;
+			if (array_intersect($hsCatIds, $prodCatIds)) continue;
+
+			$prod = new Product($db);
+			$prod->fetch($line->fk_product);
+			$base = min(100, takepos_product_base_discount($prod, $customerRemise) + $promoCodeDiscount);
+
+			// Las líneas con descuento manual cuentan para la cantidad pero su descuento se respeta tal cual
+			$manual = !empty($_SESSION['takepos_manual_discount_lines'][$placeid][$line->id])
+				|| takepos_is_manual_discount_below_base($line->remise_percent, $base);
+
+			$capilarEntries[] = array('line' => $line, 'base' => $base, 'manual' => $manual);
+			$capilarQty += (int) $line->qty;
+		}
+
+		$capilarPct = 0;
+		foreach ($PROMO_CAPILAR_TIERS as $minQty => $pct) {
+			if ($capilarQty >= $minQty) {
+				$capilarPct = $pct;
+				break;
+			}
+		}
+
+		$changed = false;
+		foreach ($capilarEntries as $entry) {
+			if ($entry['manual']) continue;
+			$line = $entry['line'];
+			// No reducir un descuento base ya mayor que la promo
+			$target = ($capilarPct > 0) ? min(100, max($entry['base'], $capilarPct + $promoCodeDiscount)) : $entry['base'];
+			if ((float) $line->remise_percent == (float) $target) continue;
+			$invoice->updateline($line->id, $line->desc, $line->subprice, $line->qty, $target, $line->date_start, $line->date_end, $line->tva_tx, $line->localtax1_tx, $line->localtax2_tx, 'HT', $line->info_bits, $line->product_type, $line->fk_parent_line, 0, $line->fk_fournprice, $line->pa_ht, $line->label, $line->special_code, $line->array_options, $line->situation_percent, $line->fk_unit);
+			$changed = true;
+		}
+		if ($changed) $invoice->fetch($placeid);
+	}
+}
+
 if ($action == "updatereduction")
 {
     foreach ($invoice->lines as $line)
